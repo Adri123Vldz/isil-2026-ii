@@ -2,12 +2,15 @@ package com.isil.edu.pe.spedidos.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Entidad que representa un pedido realizado por un cliente.
@@ -40,6 +43,21 @@ public class Pedido {
 
   @Column(nullable = false)
   private LocalDateTime fecha;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 20)
+  private Estado estado = Estado.ACTIVO;
+
+  @Column(name = "fecha_anulacion")
+  private LocalDateTime fechaAnulacion;
+
+  @Column(name = "operacion_anulacion_id", nullable = false, unique = true, length = 36)
+  private String operacionAnulacionId = UUID.randomUUID().toString();
+
+  public enum Estado {
+    ACTIVO,
+    CANCELADO
+  }
 
   public Pedido() {
   }
@@ -129,5 +147,25 @@ public class Pedido {
 
   public void setFecha(LocalDateTime fecha) {
     this.fecha = fecha;
+  }
+
+  public Estado getEstado() {
+    return estado;
+  }
+
+  public LocalDateTime getFechaAnulacion() {
+    return fechaAnulacion;
+  }
+
+  public String getOperacionAnulacionId() {
+    return operacionAnulacionId;
+  }
+
+  public void anular(LocalDateTime fechaAnulacion) {
+    if (estado == Estado.CANCELADO) {
+      throw new IllegalStateException("El pedido ya está anulado.");
+    }
+    this.estado = Estado.CANCELADO;
+    this.fechaAnulacion = fechaAnulacion;
   }
 }

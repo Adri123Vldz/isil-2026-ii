@@ -38,3 +38,25 @@ Accept: application/json
 {
   "cantidad": 9999
 }
+
+### Devolver stock al anular el pedido 42; repetir la misma petición no suma dos veces
+POST {{baseUrl}}/inventario/productos/codigo/LAP-001/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pedidoId": 42,
+  "operacionId": "6f1e5aa1-8443-4df9-a2e6-f23831cd987a",
+  "cantidad": 2
+}
+
+### Conflicto: mismo pedido con una cantidad distinta
+POST {{baseUrl}}/inventario/productos/codigo/LAP-001/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "pedidoId": 42,
+  "operacionId": "6f1e5aa1-8443-4df9-a2e6-f23831cd987a",
+  "cantidad": 3
+}

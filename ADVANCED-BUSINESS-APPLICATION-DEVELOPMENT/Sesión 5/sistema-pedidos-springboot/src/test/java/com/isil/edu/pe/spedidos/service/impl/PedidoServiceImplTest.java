@@ -1,8 +1,10 @@
 package com.isil.edu.pe.spedidos.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -13,10 +15,16 @@ import com.isil.edu.pe.spedidos.client.InventarioClient;
 import com.isil.edu.pe.spedidos.client.InventarioClientException;
 import com.isil.edu.pe.spedidos.client.InventarioNoDisponibleException;
 import com.isil.edu.pe.spedidos.client.dto.ReservaStockResponse;
+import com.isil.edu.pe.spedidos.client.dto.DevolucionStockResponse;
 import com.isil.edu.pe.spedidos.entity.Pedido;
+import com.isil.edu.pe.spedidos.entity.PedidoAuditoria;
 import com.isil.edu.pe.spedidos.exception.PedidoException;
+import com.isil.edu.pe.spedidos.exception.PedidoYaAnuladoException;
+import com.isil.edu.pe.spedidos.repository.PedidoAuditoriaRepository;
 import com.isil.edu.pe.spedidos.repository.PedidoRepository;
 import java.math.BigDecimal;
+import java.util.Optional;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -36,6 +44,7 @@ import org.junit.jupiter.api.Test;
 class PedidoServiceImplTest {
 
   private PedidoRepository pedidoRepository;
+  private PedidoAuditoriaRepository pedidoAuditoriaRepository;
   private InventarioClient inventarioClient;
   private PedidoServiceImpl pedidoService;
 
@@ -46,10 +55,12 @@ class PedidoServiceImplTest {
   @BeforeEach
   void setUp() {
     pedidoRepository = mock(PedidoRepository.class);
+    pedidoAuditoriaRepository = mock(PedidoAuditoriaRepository.class);
     inventarioClient = mock(InventarioClient.class);
 
     pedidoService = new PedidoServiceImpl(
         pedidoRepository,
+        pedidoAuditoriaRepository,
         inventarioClient
     );
   }
@@ -147,6 +158,113 @@ class PedidoServiceImplTest {
 
     assertSame(causa, error.getCause());
     verifyNoInteractions(pedidoRepository);
+  }
+
+  @Test
+  void debeAnularPedidoExistente() {
+    Pedido pedido = new Pedido(
+        "Ana Torres",
+        "LAP-001",
+        "Laptop",
+        new BigDecimal("2500.00"),
+        1,
+        new BigDecimal("2500.00")
+    );
+    pedido.setId(42L);
+    when(pedidoRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(pedido));
+    when(inventarioClient.devolverStock(
+        42L,
+        pedido.getOperacionAnulacionId(),
+        "LAP-001",
+        1
+    )).thenReturn(new DevolucionStockResponse(
+        42L,
+        pedido.getOperacionAnulacionId(),
+        "LAP-001",
+        1,
+        6
+    ));
+
+    boolean anulado = pedidoService.anularPedido(42L);
+
+    assertTrue(anulado);
+    assertEquals(Pedido.Estado.CANCELADO, pedido.getEstado());
+    assertTrue(pedido.getFechaAnulacion() != null);
+    verify(pedidoRepository).findByIdForUpdate(42L);
+    verify(inventarioClient).devolverStock(
+        42L,
+        pedido.getOperacionAnulacionId(),
+        "LAP-001",
+        1
+    );
+    verify(pedidoRepository).save(pedido);
+    verify(pedidoAuditoriaRepository).save(any(PedidoAuditoria.class));
+  }
+
+  @Test
+  void debeInformarCuandoElPedidoNoExiste() {
+    when(pedidoRepository.findByIdForUpdate(42L)).thenReturn(Optional.empty());
+
+    boolean anulado = pedidoService.anularPedido(42L);
+
+    assertFalse(anulado);
+    verify(pedidoRepository).findByIdForUpdate(42L);
+    verifyNoInteractions(inventarioClient, pedidoAuditoriaRepository);
+  }
+
+  @Test
+  void debeRechazarIdentificadorInvalidoSinConsultarElRepositorio() {
+    boolean anulado = pedidoService.anularPedido(0L);
+
+    assertFalse(anulado);
+    verifyNoInteractions(pedidoRepository, inventarioClient, pedidoAuditoriaRepository);
+  }
+
+  @Test
+  void noDebeAnularDosVecesElMismoPedido() {
+    Pedido pedido = new Pedido(
+        "Ana Torres",
+        "LAP-001",
+        "Laptop",
+        new BigDecimal("2500.00"),
+        1,
+        new BigDecimal("2500.00")
+    );
+    pedido.setId(42L);
+    pedido.anular(LocalDateTime.now());
+    when(pedidoRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(pedido));
+
+    assertThrows(PedidoYaAnuladoException.class, () -> pedidoService.anularPedido(42L));
+    verifyNoInteractions(inventarioClient, pedidoAuditoriaRepository);
+  }
+
+  @Test
+  void conservaPedidoActivoSiInventarioNoPuedeCompletarLaDevolucion() {
+    Pedido pedido = new Pedido(
+        "Ana Torres",
+        "LAP-001",
+        "Laptop",
+        new BigDecimal("2500.00"),
+        1,
+        new BigDecimal("2500.00")
+    );
+    pedido.setId(42L);
+    when(pedidoRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(pedido));
+    when(inventarioClient.devolverStock(
+        42L,
+        pedido.getOperacionAnulacionId(),
+        "LAP-001",
+        1
+    ))
+        .thenThrow(new InventarioNoDisponibleException("Sin conexión."));
+
+    assertThrows(
+        InventarioNoDisponibleException.class,
+        () -> pedidoService.anularPedido(42L)
+    );
+
+    assertEquals(Pedido.Estado.ACTIVO, pedido.getEstado());
+    verifyNoInteractions(pedidoAuditoriaRepository);
   }
 
   private ReservaStockResponse nuevaReserva(

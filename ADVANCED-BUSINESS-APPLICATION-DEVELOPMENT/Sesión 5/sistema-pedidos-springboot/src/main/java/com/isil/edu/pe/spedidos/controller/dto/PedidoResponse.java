@@ -18,7 +18,9 @@ public record PedidoResponse(
     BigDecimal precioUnitario,
     int cantidad,
     BigDecimal total,
-    LocalDateTime fecha
+    LocalDateTime fecha,
+    Pedido.Estado estado,
+    LocalDateTime fechaAnulacion
 ) {
 
   /**
@@ -37,7 +39,9 @@ public record PedidoResponse(
         pedido.getPrecioUnitario(),
         pedido.getCantidad(),
         pedido.getTotal(),
-        pedido.getFecha()
+        pedido.getFecha(),
+        pedido.getEstado(),
+        pedido.getFechaAnulacion()
     );
   }
 }

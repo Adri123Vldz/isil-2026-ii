@@ -129,6 +129,30 @@
           ]
         },
         {
+          "name": "Anular pedido por ID",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Devuelve stock y marca el pedido como CANCELADO. Responde 204 si se anuló, 404 si no existe, 409 si ya estaba anulado y 503 si Inventario no está disponible.",
+            "url": {
+              "raw": "http://localhost:8081/sistema-pedidos/api/v1/orders/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "sistema-pedidos",
+                "api",
+                "v1",
+                "orders",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "inventario/productos",
           "request": {
             "method": "GET",
@@ -204,6 +228,45 @@
                 "codigo",
                 "MON-001",
                 "reservas"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "inventario/productos - devoluciones idempotentes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"pedidoId\": 42,\r\n    \"operacionId\": \"6f1e5aa1-8443-4df9-a2e6-f23831cd987a\",\r\n    \"cantidad\": 2\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8082/inventario-service/api/inventario/productos/codigo/LAP-001/devoluciones",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "inventario-service",
+                "api",
+                "inventario",
+                "productos",
+                "codigo",
+                "LAP-001",
+                "devoluciones"
               ]
             }
           },

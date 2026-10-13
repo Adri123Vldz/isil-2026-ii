@@ -75,6 +75,16 @@ public class ProductoInventario {
     stock -= cantidad;
   }
 
+  public void devolverStock(int cantidad) {
+    if (cantidad <= 0) {
+      throw new IllegalArgumentException("La cantidad debe ser mayor que cero.");
+    }
+    if (stock > Integer.MAX_VALUE - cantidad) {
+      throw new IllegalStateException("La devolución excede el límite de stock permitido.");
+    }
+    stock += cantidad;
+  }
+
   public Long getId() {
     return id;
   }

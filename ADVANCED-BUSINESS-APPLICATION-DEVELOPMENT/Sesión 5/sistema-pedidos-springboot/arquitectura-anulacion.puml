@@ -1,0 +1,34 @@
+@startuml
+actor Cliente
+participant "PedidoApiController\n(Spring Boot)" as API
+participant "PedidoServiceImpl" as Service
+database "H2\npedido + pedido_auditoria" as H2
+participant "InventarioResource\n(Jakarta REST)" as Inventory
+participant "InventarioService\n(JTA)" as InventoryService
+database "SQL Server\nproducto + compensacion_stock" as SQL
+
+Cliente -> API: DELETE /api/v1/orders/{pedidoId}
+API -> Service: anularPedido(pedidoId)
+Service -> H2: obtener pedido con bloqueo
+H2 --> Service: pedido ACTIVO
+Service -> Inventory: POST devoluciones\n(pedidoId, operationId UUID, cantidad)
+Inventory -> InventoryService: devolverStockPorCodigo(...)
+InventoryService -> SQL: bloquear producto y consultar compensación
+alt primera devolución
+  InventoryService -> SQL: incrementar stock + insertar compensación
+  SQL --> InventoryService: commit atómico
+  InventoryService --> Inventory: 200 + resultado
+else reintento remoto del mismo pedido
+  InventoryService --> Inventory: resultado previo; no cambia stock
+end
+Inventory --> Service: devolución confirmada
+Service -> H2: estado CANCELADO + fecha + auditoría
+Service --> API: completado
+API --> Cliente: 204 No Content
+
+note over H2,SQL
+Los almacenes no comparten transacción.
+El UUID de operación persistente permite reintentar la compensación
+sin aplicar dos veces el incremento.
+end note
+@enduml

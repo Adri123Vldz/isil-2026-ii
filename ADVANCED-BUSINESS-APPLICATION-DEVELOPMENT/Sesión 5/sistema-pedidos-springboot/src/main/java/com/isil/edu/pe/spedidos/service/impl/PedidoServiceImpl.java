@@ -3,14 +3,20 @@ package com.isil.edu.pe.spedidos.service.impl;
 import com.isil.edu.pe.spedidos.client.InventarioClient;
 import com.isil.edu.pe.spedidos.client.InventarioClientException;
 import com.isil.edu.pe.spedidos.client.InventarioNoDisponibleException;
+import com.isil.edu.pe.spedidos.client.dto.DevolucionStockResponse;
 import com.isil.edu.pe.spedidos.client.dto.ProductoInventarioResponse;
 import com.isil.edu.pe.spedidos.client.dto.ReservaStockResponse;
 import com.isil.edu.pe.spedidos.entity.Pedido;
+import com.isil.edu.pe.spedidos.entity.PedidoAuditoria;
 import com.isil.edu.pe.spedidos.exception.PedidoException;
+import com.isil.edu.pe.spedidos.exception.PedidoYaAnuladoException;
+import com.isil.edu.pe.spedidos.repository.PedidoAuditoriaRepository;
 import com.isil.edu.pe.spedidos.repository.PedidoRepository;
 import com.isil.edu.pe.spedidos.service.PedidoService;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +67,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PedidoServiceImpl implements PedidoService {
 
   private final PedidoRepository pedidoRepository;
+  private final PedidoAuditoriaRepository pedidoAuditoriaRepository;
   private final InventarioClient inventarioClient;
 
   /**
@@ -84,8 +91,13 @@ public class PedidoServiceImpl implements PedidoService {
    * @param inventarioClient cliente utilizado para comunicarse
    *                         con el servicio de Inventario
    */
-  public PedidoServiceImpl(PedidoRepository pedidoRepository, InventarioClient inventarioClient) {
+  public PedidoServiceImpl(
+      PedidoRepository pedidoRepository,
+      PedidoAuditoriaRepository pedidoAuditoriaRepository,
+      InventarioClient inventarioClient
+  ) {
     this.pedidoRepository = pedidoRepository;
+    this.pedidoAuditoriaRepository = pedidoAuditoriaRepository;
     this.inventarioClient = inventarioClient;
   }
 
@@ -157,6 +169,76 @@ public class PedidoServiceImpl implements PedidoService {
             reserva.getPrecio(), cantidad, total);
 
     return pedidoRepository.save(pedido);
+  }
+
+  /**
+   * Compensa el stock de Inventario y registra localmente la anulación.
+   *
+   * @param pedidoId identificador del pedido
+   * @return {@code true} si se eliminó un pedido; {@code false} si no existe
+   *         o el identificador no es válido
+   */
+  @Override
+  @Transactional
+  public boolean anularPedido(long pedidoId) {
+    if (pedidoId <= 0) {
+      return false;
+    }
+
+    Optional<Pedido> pedido = pedidoRepository.findByIdForUpdate(pedidoId);
+    if (pedido.isEmpty()) {
+      return false;
+    }
+
+    Pedido existente = pedido.get();
+    if (existente.getEstado() == Pedido.Estado.CANCELADO) {
+      throw new PedidoYaAnuladoException(pedidoId);
+    }
+
+    DevolucionStockResponse devolucion;
+    try {
+      devolucion = inventarioClient.devolverStock(
+          pedidoId,
+          existente.getOperacionAnulacionId(),
+          existente.getProductoCodigo(),
+          existente.getCantidad()
+      );
+    } catch (InventarioClientException e) {
+      if (e.getStatus() >= 500) {
+        throw new InventarioNoDisponibleException(
+            "El servicio de inventario presentó un error temporal (HTTP "
+                + e.getStatus()
+                + ").",
+            e
+        );
+      }
+      throw new PedidoException(
+          "Inventario rechazó la compensación del pedido: " + e.getMessage(),
+          e
+      );
+    }
+
+    if (devolucion == null
+        || !Long.valueOf(pedidoId).equals(devolucion.getPedidoId())
+        || !existente.getOperacionAnulacionId().equals(devolucion.getOperacionId())
+        || !existente.getProductoCodigo().equals(devolucion.getCodigo())
+        || existente.getCantidad() != devolucion.getCantidadDevuelta()) {
+      throw new PedidoException(
+          "Inventario devolvió una respuesta incompleta o inconsistente."
+      );
+    }
+
+    LocalDateTime fechaAnulacion = LocalDateTime.now();
+    existente.anular(fechaAnulacion);
+    pedidoRepository.save(existente);
+    pedidoAuditoriaRepository.save(new PedidoAuditoria(
+        pedidoId,
+        existente.getOperacionAnulacionId(),
+        existente.getProductoCodigo(),
+        existente.getCantidad(),
+        fechaAnulacion
+    ));
+    return true;
   }
 
   /**

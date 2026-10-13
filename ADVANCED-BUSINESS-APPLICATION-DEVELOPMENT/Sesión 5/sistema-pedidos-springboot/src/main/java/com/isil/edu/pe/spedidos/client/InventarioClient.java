@@ -2,6 +2,7 @@ package com.isil.edu.pe.spedidos.client;
 
 import com.isil.edu.pe.spedidos.client.dto.ProductoInventarioResponse;
 import com.isil.edu.pe.spedidos.client.dto.ReservaStockResponse;
+import com.isil.edu.pe.spedidos.client.dto.DevolucionStockResponse;
 import java.util.List;
 
 /**
@@ -116,5 +117,12 @@ public interface InventarioClient {
    *         el servicio de Inventario
    */
   ReservaStockResponse reservarStock(String codigo, int cantidad);
+
+  DevolucionStockResponse devolverStock(
+      long pedidoId,
+      String operacionId,
+      String codigo,
+      int cantidad
+  );
 
 }

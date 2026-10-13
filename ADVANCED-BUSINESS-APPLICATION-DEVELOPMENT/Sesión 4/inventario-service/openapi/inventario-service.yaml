@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Inventario Service
-  version: 1.3.0
+  version: 1.4.0
   description: API académica responsable del catálogo de productos, precios y stock.
 servers:
   - url: http://localhost:8082/inventario-service/api
@@ -58,6 +58,30 @@ paths:
         '400': { description: Datos inválidos }
         '404': { description: Producto no encontrado }
         '409': { description: Stock insuficiente o conflicto de concurrencia }
+  /inventario/productos/codigo/{codigo}/devoluciones:
+    post:
+      summary: Devuelve stock una sola vez por pedido (reintentos idempotentes)
+      parameters:
+        - in: path
+          name: codigo
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevolucionStockRequest'
+      responses:
+        '200':
+          description: Stock devuelto o confirmación de una devolución previa del mismo pedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevolucionStockResponse'
+        '400': { description: Pedido o cantidad inválida }
+        '404': { description: Producto no encontrado }
+        '409': { description: El pedido ya fue compensado con datos diferentes }
 components:
   schemas:
     ProductoResponse:
@@ -86,3 +110,27 @@ components:
         cantidadReservada: { type: integer }
         stockRestante: { type: integer }
         version: { type: integer, format: int64 }
+    DevolucionStockRequest:
+      type: object
+      required: [pedidoId, operacionId, cantidad]
+      properties:
+        pedidoId:
+          type: integer
+          format: int64
+          minimum: 1
+        operacionId:
+          type: string
+          format: uuid
+          description: UUID requerido como clave idempotente de la compensación
+          description: UUID persistido por Pedidos, estable para reintentos incluso tras reinicios
+        cantidad:
+          type: integer
+          minimum: 1
+    DevolucionStockResponse:
+      type: object
+      properties:
+        pedidoId: { type: integer, format: int64 }
+        operacionId: { type: string, format: uuid }
+        codigo: { type: string }
+        cantidadDevuelta: { type: integer }
+        stockResultante: { type: integer }

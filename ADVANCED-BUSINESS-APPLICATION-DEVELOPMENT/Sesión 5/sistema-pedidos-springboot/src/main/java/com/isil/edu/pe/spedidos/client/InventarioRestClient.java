@@ -1,6 +1,8 @@
 package com.isil.edu.pe.spedidos.client;
 
 import com.isil.edu.pe.spedidos.client.dto.ApiError;
+import com.isil.edu.pe.spedidos.client.dto.DevolucionStockRequest;
+import com.isil.edu.pe.spedidos.client.dto.DevolucionStockResponse;
 import com.isil.edu.pe.spedidos.client.dto.ProductoInventarioResponse;
 import com.isil.edu.pe.spedidos.client.dto.ReservaStockRequest;
 import com.isil.edu.pe.spedidos.client.dto.ReservaStockResponse;
@@ -311,6 +313,28 @@ public class InventarioRestClient implements InventarioClient {
           .body(request)
           .retrieve()
           .body(ReservaStockResponse.class);
+    } catch (RestClientResponseException e) {
+      throw convertirError(e);
+    } catch (ResourceAccessException e) {
+      throw noDisponible(e);
+    }
+  }
+
+  @Override
+  public DevolucionStockResponse devolverStock(
+      long pedidoId,
+      String operacionId,
+      String codigo,
+      int cantidad
+  ) {
+    DevolucionStockRequest request = new DevolucionStockRequest(pedidoId, operacionId, cantidad);
+    try {
+      return restClient
+          .post()
+          .uri(baseUrl + "/productos/codigo/{codigo}/devoluciones", codigo)
+          .body(request)
+          .retrieve()
+          .body(DevolucionStockResponse.class);
     } catch (RestClientResponseException e) {
       throw convertirError(e);
     } catch (ResourceAccessException e) {

@@ -43,11 +43,12 @@ SQL Server Express 2025
 1. Habilitar TCP/IP en SQL Server Express y configurar un puerto fijo (la guía usa 1433).
 2. Habilitar autenticación SQL Server/Mixed Mode para el usuario académico.
 3. Ejecutar `database/01_crear_inventario.sql` en SSMS.
-4. Verificar JDK 21 y Maven.
-5. Ejecutar:
+4. Ejecutar `database/04_crear_compensaciones.sql` para habilitar la compensación idempotente (también en instalaciones ya existentes).
+5. Verificar JDK 21 y Maven.
+6. Ejecutar:
 
 ```bash
-mvn clean test
+mvn clean verify
 mvn clean wildfly:run
 ```
 
@@ -65,7 +66,10 @@ API principal:
 GET  /inventario-service/api/inventario/productos
 GET  /inventario-service/api/inventario/productos/1/stock
 POST /inventario-service/api/inventario/productos/1/reservas
+POST /inventario-service/api/inventario/productos/codigo/LAP-001/devoluciones
 ```
+
+La petición de devolución recibe `pedidoId`, `operacionId` (UUID generado y persistido por Pedidos) y `cantidad`. `operacion_id` es clave primaria en la tabla de compensaciones; el stock y la marca de compensación se actualizan en una sola transacción. Un reintento con el mismo UUID, pedido, producto y cantidad confirma la operación original sin volver a sumar stock; datos distintos para el mismo UUID producen `409 Conflict`.
 
 Body de reserva:
 
@@ -84,6 +88,7 @@ También existen endpoints por `codigo` (`LAP-001`, `MON-001`, `TEC-001`) para m
 - `requests/inventario-service.http`
 - `openapi/inventario-service.yaml`
 - `database/02_reset_stock_demo.sql`
+- `database/04_crear_compensaciones.sql`
 
 ## Nota académica de seguridad
 
