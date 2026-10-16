@@ -46,18 +46,13 @@ public class Pedido {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
-  private Estado estado = Estado.ACTIVO;
+  private PedidoEstado estado = PedidoEstado.REGISTRADO;
 
   @Column(name = "fecha_anulacion")
   private LocalDateTime fechaAnulacion;
 
   @Column(name = "operacion_anulacion_id", nullable = false, unique = true, length = 36)
   private String operacionAnulacionId = UUID.randomUUID().toString();
-
-  public enum Estado {
-    ACTIVO,
-    CANCELADO
-  }
 
   public Pedido() {
   }
@@ -149,7 +144,7 @@ public class Pedido {
     this.fecha = fecha;
   }
 
-  public Estado getEstado() {
+  public PedidoEstado getEstado() {
     return estado;
   }
 
@@ -162,10 +157,10 @@ public class Pedido {
   }
 
   public void anular(LocalDateTime fechaAnulacion) {
-    if (estado == Estado.CANCELADO) {
+    if (estado == PedidoEstado.ANULADO) {
       throw new IllegalStateException("El pedido ya está anulado.");
     }
-    this.estado = Estado.CANCELADO;
+    this.estado = PedidoEstado.ANULADO;
     this.fechaAnulacion = fechaAnulacion;
   }
 }

@@ -15,16 +15,7 @@
 <body>
 <div class="contenedor">
     <header class="cabecera">
-        <div>
-            <p class="eyebrow">Spring Boot 4.1 · Spring MVC · Inyección de Dependencias</p>
-            <h1>Sistema de Pedidos</h1>
-            <p class="subtitulo">
-                El catálogo, precio y stock provienen de inventario-service; H2 conserva los pedidos durante la ejecución.
-            </p>
-        </div>
-        <div class="flujo">
-            DispatcherServlet → Controller → Service → RestClient → inventario-service · Pedido → H2
-        </div>
+        <h1>Sistema de Pedidos</h1>
     </header>
 
     <section class="tarjeta">
@@ -37,6 +28,12 @@
         <c:if test="${not empty param.creado}">
             <div class="alerta exito">
                 Pedido #<c:out value="${param.creado}"/> registrado correctamente.
+            </div>
+        </c:if>
+
+        <c:if test="${not empty exito}">
+            <div class="alerta exito">
+                <c:out value="${exito}"/>
             </div>
         </c:if>
 
@@ -110,6 +107,8 @@
                     <th>Cantidad</th>
                     <th>Total</th>
                     <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -135,12 +134,33 @@
                                     maxFractionDigits="2"/>
                         </td>
                         <td><c:out value="${pedido.fecha}"/></td>
+                        <td>
+                            <c:choose>
+                                <c:when test="${empty pedido.fechaAnulacion}">Registrado</c:when>
+                                <c:otherwise>Anulado</c:otherwise>
+                            </c:choose>
+                        </td>
+                        <td>
+                            <c:choose>
+                                <c:when test="${empty pedido.fechaAnulacion}">
+                                    <c:url var="devolverUrl" value="/pedidos/${pedido.id}/devolver"/>
+                                    <form method="post" action="${devolverUrl}"
+                                          onsubmit="return confirm('¿Deseas anular este pedido y devolver sus productos al inventario?');">
+                                        <button type="submit" class="boton-devolver"
+                                                title="Anular el pedido y devolver sus productos al inventario">
+                                            Devolver productos
+                                        </button>
+                                    </form>
+                                </c:when>
+                                <c:otherwise>Productos devueltos</c:otherwise>
+                            </c:choose>
+                        </td>
                     </tr>
                 </c:forEach>
 
                 <c:if test="${empty pedidos}">
                     <tr>
-                        <td colspan="8" class="sin-datos">Aún no hay pedidos.</td>
+                        <td colspan="10" class="sin-datos">Aún no hay pedidos.</td>
                     </tr>
                 </c:if>
                 </tbody>

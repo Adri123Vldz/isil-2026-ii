@@ -3,6 +3,7 @@ package com.isil.edu.pe.spedidos.controller;
 import com.isil.edu.pe.spedidos.client.InventarioNoDisponibleException;
 import com.isil.edu.pe.spedidos.entity.Pedido;
 import com.isil.edu.pe.spedidos.exception.PedidoException;
+import com.isil.edu.pe.spedidos.exception.PedidoYaAnuladoException;
 import com.isil.edu.pe.spedidos.service.PedidoService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -363,6 +365,48 @@ public class PedidoController {
     }
   }
 
+  @PostMapping("/{pedidoId}/devolver")
+  public String devolverProductos(
+      @PathVariable String pedidoId,
+      RedirectAttributes redirectAttributes
+  ) {
+    final long id;
+    try {
+      id = Long.parseLong(pedidoId);
+    } catch (NumberFormatException e) {
+      redirectAttributes.addFlashAttribute("error", "No se encontró el pedido indicado.");
+      return "redirect:/pedidos";
+    }
+
+    try {
+      if (!pedidoService.anularPedido(id)) {
+        redirectAttributes.addFlashAttribute("error", "No se encontró el pedido indicado.");
+        return "redirect:/pedidos";
+      }
+      redirectAttributes.addFlashAttribute(
+          "exito",
+          "Pedido #" + id + " anulado; sus productos fueron devueltos al inventario."
+      );
+    } catch (PedidoYaAnuladoException e) {
+      redirectAttributes.addFlashAttribute("error", e.getMessage());
+    } catch (InventarioNoDisponibleException e) {
+      redirectAttributes.addFlashAttribute(
+          "error",
+          "No se pudo contactar con Inventario. El pedido no se confirmó; inténtalo de nuevo."
+      );
+    } catch (PedidoException e) {
+      redirectAttributes.addFlashAttribute("error", e.getMessage());
+    } catch (RuntimeException e) {
+      log.error("Error inesperado al devolver los productos del pedido {}.", id, e);
+      redirectAttributes.addFlashAttribute(
+          "error",
+          "Ocurrió un error al devolver los productos. Verifica el estado del pedido antes de reintentar."
+      );
+    }
+
+    return "redirect:/pedidos";
+  }
+
   /**
    * Carga en el {@link Model} los datos requeridos para renderizar
    * la vista principal de pedidos.
@@ -395,7 +439,12 @@ public class PedidoController {
    */
   private void cargarDatosVista(Model model) {
     model.addAttribute("productos", pedidoService.listarProductos());
-    model.addAttribute("pedidos", pedidoService.listarPedidos());
+    model.addAttribute(
+        "pedidos",
+        pedidoService.listarPedidos().stream()
+            .filter(pedido -> pedido.getFechaAnulacion() == null)
+            .toList()
+    );
   }
 
   /**

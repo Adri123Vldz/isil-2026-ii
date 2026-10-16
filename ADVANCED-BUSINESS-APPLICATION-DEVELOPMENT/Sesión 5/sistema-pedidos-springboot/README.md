@@ -42,31 +42,39 @@ La API REST usa el prefijo `/api/v1/orders` bajo el context path `/sistema-pedid
 | Método | Ruta | Resultado |
 |---|---|---|
 | `GET` | `/sistema-pedidos/api/v1/orders` | Lista los pedidos como JSON. |
-| `DELETE` | `/sistema-pedidos/api/v1/orders/{pedidoId}` | Devuelve el stock, marca el pedido como cancelado y registra auditoría. |
+| `DELETE` | `/sistema-pedidos/api/v1/orders/{pedidoId}` | Ruta de compatibilidad para devolver el stock y anular un pedido. |
+| `POST` | `/sistema-pedidos/api/v1/anulaciones` | Registra la anulación de un pedido y devuelve sus unidades al inventario. |
+| `GET` | `/sistema-pedidos/api/v1/anulaciones` | Lista las anulaciones registradas. |
 
-La cancelación no elimina el pedido. `pedido.estado` cambia de `ACTIVO` a `CANCELADO`, `fecha_anulacion` se conserva y se inserta una fila en `pedido_auditoria` en la misma transacción H2.
+Para crear una anulación, envía `{"pedidoId": 1, "motivo": "Solicitud del cliente"}`. `motivo` es opcional. La respuesta es `201 Created` e incluye el código, la cantidad devuelta y la fecha de anulación. Un `pedidoId` obligatorio y positivo es validado antes de procesar la solicitud.
+
+La anulación no elimina el pedido. `pedido.estado` cambia de `REGISTRADO` a `ANULADO`; se conserva `fecha_anulacion` y se inserta el registro correspondiente en `anulacion_pedido` en la misma transacción local de H2. El endpoint `DELETE /orders/{pedidoId}` se mantiene por compatibilidad con la interfaz y las integraciones existentes.
 
 | Respuesta | Significado |
 |---|---|
-| `204 No Content` | Cancelación confirmada; la devolución remota fue aceptada. |
+| `201 Created` | Anulación confirmada por `POST /anulaciones`. |
+| `200 OK` | Lista de anulaciones devuelta por `GET /anulaciones`. |
+| `204 No Content` | Anulación confirmada por la ruta de compatibilidad DELETE. |
+| `400 Bad Request` | El cuerpo no contiene un `pedidoId` positivo. |
 | `404 Not Found` | ID inválido o pedido inexistente. |
-| `409 Conflict` | El pedido ya estaba cancelado. No se vuelve a solicitar una devolución. |
-| `503 Service Unavailable` | Inventario no respondió; el pedido permanece activo y el DELETE puede reintentarse. |
+| `409 Conflict` | El pedido ya estaba anulado. No se vuelve a solicitar una devolución. |
+| `503 Service Unavailable` | Inventario no respondió; el pedido permanece registrado y se puede reintentar. |
 | `502 Bad Gateway` | Inventario rechazó la compensación o respondió con datos inconsistentes. |
 
 Cada pedido conserva un UUID de operación de anulación desde su creación. Inventario lo usa como clave única en `compensacion_stock` y bloquea el producto mientras procesa la devolución. Un reintento con el mismo UUID, pedido, código y cantidad devuelve el resultado previamente guardado sin incrementar stock otra vez; el UUID no colisiona si la secuencia numérica de H2 se reinicia. Esto permite recuperar el caso en que Inventario confirmó la transacción pero la respuesta se perdió. Las transacciones de H2 y SQL Server son independientes; no se simula una transacción distribuida.
 
 El formulario MVC también permite registrar pedidos mediante `POST /sistema-pedidos/pedidos`.
+En la tabla de pedidos, el botón **Devolver productos** anula un pedido registrado y devuelve su cantidad al inventario. Después de una devolución confirmada, el pedido deja de mostrarse en la tabla, pero permanece almacenado con su auditoría y estado de anulación.
 
 ## Pruebas manuales
 
 Arranca primero Inventario y luego Pedidos; importa `postman/ISIL.postman_collection.json` o usa el archivo `../../Sesión 4/inventario-service/requests/inventario-service.http`.
 
 1. Consulta stock inicial de `LAP-001`.
-2. Registra un pedido por 2 unidades; comprueba que el stock baje y que GET orders muestre `estado: ACTIVO`.
-3. Anula ese pedido; debe responder 204, dejar el pedido en el historial como `CANCELADO` e incrementar el stock en 2.
-4. Repite el DELETE; debe responder 409 y el stock debe permanecer igual.
-5. Detén Inventario y prueba DELETE para otro pedido; debe responder 503 y, una vez que Inventario vuelva a estar disponible, permitir reintentar la anulación.
+2. Registra un pedido por 2 unidades; comprueba que el stock baje y que GET orders muestre `estado: REGISTRADO`.
+3. Envía `POST /api/v1/anulaciones` con el `pedidoId`; debe responder 201, dejar el pedido en estado `ANULADO` e incrementar el stock en 2.
+4. Comprueba `GET /api/v1/anulaciones`; debe incluir la anulación recién creada. Repite el POST para ese pedido; debe responder 409 y el stock debe permanecer igual.
+5. Detén Inventario y prueba una anulación para otro pedido; debe responder 503 y, una vez que Inventario vuelva a estar disponible, permitir reintentar la anulación.
 
 Para SQL Server, crea una instalación nueva con `../../Sesión 4/inventario-service/database/01_crear_inventario.sql` y luego ejecuta `../../Sesión 4/inventario-service/database/04_crear_compensaciones.sql`. Para una base existente ejecuta el script 04 antes de anular pedidos.
 

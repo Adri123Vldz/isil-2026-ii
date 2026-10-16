@@ -44,4 +44,8 @@ public class DevolucionStockResponse {
   public int getStockResultante() {
     return stockResultante;
   }
+
+  public int getStockRestante() {
+    return stockResultante;
+  }
 }

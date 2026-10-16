@@ -60,7 +60,7 @@ paths:
         '409': { description: Stock insuficiente o conflicto de concurrencia }
   /inventario/productos/codigo/{codigo}/devoluciones:
     post:
-      summary: Devuelve stock una sola vez por pedido (reintentos idempotentes)
+      summary: Devuelve stock; los identificadores permiten reintentos idempotentes
       parameters:
         - in: path
           name: codigo
@@ -74,12 +74,12 @@ paths:
               $ref: '#/components/schemas/DevolucionStockRequest'
       responses:
         '200':
-          description: Stock devuelto o confirmación de una devolución previa del mismo pedido
+          description: Stock devuelto o confirmación de una devolución previa con la misma operación
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DevolucionStockResponse'
-        '400': { description: Pedido o cantidad inválida }
+        '400': { description: Cantidad inválida o identificadores incompletos }
         '404': { description: Producto no encontrado }
         '409': { description: El pedido ya fue compensado con datos diferentes }
 components:
@@ -112,17 +112,17 @@ components:
         version: { type: integer, format: int64 }
     DevolucionStockRequest:
       type: object
-      required: [pedidoId, operacionId, cantidad]
+      required: [cantidad]
       properties:
         pedidoId:
           type: integer
           format: int64
           minimum: 1
+          description: Opcional para solicitudes simples; debe enviarse junto con operacionId para idempotencia.
         operacionId:
           type: string
           format: uuid
-          description: UUID requerido como clave idempotente de la compensación
-          description: UUID persistido por Pedidos, estable para reintentos incluso tras reinicios
+          description: UUID opcional, requerido junto con pedidoId para reintentos idempotentes.
         cantidad:
           type: integer
           minimum: 1
@@ -133,4 +133,5 @@ components:
         operacionId: { type: string, format: uuid }
         codigo: { type: string }
         cantidadDevuelta: { type: integer }
+        stockRestante: { type: integer }
         stockResultante: { type: integer }

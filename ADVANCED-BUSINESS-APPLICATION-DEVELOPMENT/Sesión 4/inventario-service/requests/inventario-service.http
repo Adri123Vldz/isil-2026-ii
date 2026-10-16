@@ -39,6 +39,15 @@ Accept: application/json
   "cantidad": 9999
 }
 
+### Devolución simple según el contrato PA2; no tiene deduplicación de reintentos
+POST {{baseUrl}}/inventario/productos/codigo/LAP-001/devoluciones
+Content-Type: application/json
+Accept: application/json
+
+{
+  "cantidad": 2
+}
+
 ### Devolver stock al anular el pedido 42; repetir la misma petición no suma dos veces
 POST {{baseUrl}}/inventario/productos/codigo/LAP-001/devoluciones
 Content-Type: application/json

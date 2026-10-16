@@ -133,7 +133,7 @@
           "request": {
             "method": "DELETE",
             "header": [],
-            "description": "Devuelve stock y marca el pedido como CANCELADO. Responde 204 si se anuló, 404 si no existe, 409 si ya estaba anulado y 503 si Inventario no está disponible.",
+            "description": "Ruta heredada de compatibilidad: devuelve stock y marca el pedido como ANULADO. Responde 204 si se anuló, 404 si no existe, 409 si ya estaba anulado y 503 si Inventario no está disponible.",
             "url": {
               "raw": "http://localhost:8081/sistema-pedidos/api/v1/orders/1",
               "protocol": "http",
@@ -147,6 +147,64 @@
                 "v1",
                 "orders",
                 "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar anulación de pedido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pedidoId\": 1,\n  \"motivo\": \"Solicitud del cliente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/sistema-pedidos/api/v1/anulaciones",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "sistema-pedidos",
+                "api",
+                "v1",
+                "anulaciones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar anulaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/sistema-pedidos/api/v1/anulaciones",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "sistema-pedidos",
+                "api",
+                "v1",
+                "anulaciones"
               ]
             }
           },

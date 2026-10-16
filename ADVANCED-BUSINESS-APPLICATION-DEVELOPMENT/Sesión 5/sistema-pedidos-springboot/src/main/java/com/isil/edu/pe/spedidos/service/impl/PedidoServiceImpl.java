@@ -6,11 +6,12 @@ import com.isil.edu.pe.spedidos.client.InventarioNoDisponibleException;
 import com.isil.edu.pe.spedidos.client.dto.DevolucionStockResponse;
 import com.isil.edu.pe.spedidos.client.dto.ProductoInventarioResponse;
 import com.isil.edu.pe.spedidos.client.dto.ReservaStockResponse;
+import com.isil.edu.pe.spedidos.entity.AnulacionPedido;
 import com.isil.edu.pe.spedidos.entity.Pedido;
-import com.isil.edu.pe.spedidos.entity.PedidoAuditoria;
+import com.isil.edu.pe.spedidos.entity.PedidoEstado;
 import com.isil.edu.pe.spedidos.exception.PedidoException;
 import com.isil.edu.pe.spedidos.exception.PedidoYaAnuladoException;
-import com.isil.edu.pe.spedidos.repository.PedidoAuditoriaRepository;
+import com.isil.edu.pe.spedidos.repository.AnulacionPedidoRepository;
 import com.isil.edu.pe.spedidos.repository.PedidoRepository;
 import com.isil.edu.pe.spedidos.service.PedidoService;
 import java.math.BigDecimal;
@@ -31,6 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>
  *     {@link PedidoRepository}, encargado de la persistencia local
  *     de los pedidos.
+ *   </li>
+ *   <li>
+ *     {@link AnulacionPedidoRepository}, encargado de persistir las anulaciones.
  *   </li>
  *   <li>
  *     {@link InventarioClient}, encargado de comunicarse con
@@ -67,7 +71,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PedidoServiceImpl implements PedidoService {
 
   private final PedidoRepository pedidoRepository;
-  private final PedidoAuditoriaRepository pedidoAuditoriaRepository;
+  private final AnulacionPedidoRepository anulacionPedidoRepository;
   private final InventarioClient inventarioClient;
 
   /**
@@ -93,11 +97,11 @@ public class PedidoServiceImpl implements PedidoService {
    */
   public PedidoServiceImpl(
       PedidoRepository pedidoRepository,
-      PedidoAuditoriaRepository pedidoAuditoriaRepository,
+      AnulacionPedidoRepository anulacionPedidoRepository,
       InventarioClient inventarioClient
   ) {
     this.pedidoRepository = pedidoRepository;
-    this.pedidoAuditoriaRepository = pedidoAuditoriaRepository;
+    this.anulacionPedidoRepository = anulacionPedidoRepository;
     this.inventarioClient = inventarioClient;
   }
 
@@ -175,12 +179,18 @@ public class PedidoServiceImpl implements PedidoService {
    * Compensa el stock de Inventario y registra localmente la anulación.
    *
    * @param pedidoId identificador del pedido
-   * @return {@code true} si se eliminó un pedido; {@code false} si no existe
+   * @return {@code true} si se anuló un pedido; {@code false} si no existe
    *         o el identificador no es válido
    */
   @Override
   @Transactional
   public boolean anularPedido(long pedidoId) {
+    return anularPedido(pedidoId, null);
+  }
+
+  @Override
+  @Transactional
+  public boolean anularPedido(long pedidoId, String motivo) {
     if (pedidoId <= 0) {
       return false;
     }
@@ -191,7 +201,7 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     Pedido existente = pedido.get();
-    if (existente.getEstado() == Pedido.Estado.CANCELADO) {
+    if (existente.getEstado() == PedidoEstado.ANULADO) {
       throw new PedidoYaAnuladoException(pedidoId);
     }
 
@@ -231,11 +241,12 @@ public class PedidoServiceImpl implements PedidoService {
     LocalDateTime fechaAnulacion = LocalDateTime.now();
     existente.anular(fechaAnulacion);
     pedidoRepository.save(existente);
-    pedidoAuditoriaRepository.save(new PedidoAuditoria(
+    anulacionPedidoRepository.save(new AnulacionPedido(
         pedidoId,
-        existente.getOperacionAnulacionId(),
         existente.getProductoCodigo(),
         existente.getCantidad(),
+        existente.getOperacionAnulacionId(),
+        motivo,
         fechaAnulacion
     ));
     return true;

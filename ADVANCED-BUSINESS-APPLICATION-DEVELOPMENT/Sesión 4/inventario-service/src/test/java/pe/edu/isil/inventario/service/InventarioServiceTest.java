@@ -70,6 +70,7 @@ class InventarioServiceTest {
     assertEquals(42L, response.getPedidoId());
     assertEquals(OPERATION_ID, response.getOperacionId());
     assertEquals(5, response.getStockResultante());
+    assertEquals(5, response.getStockRestante());
     verify(entityManager).persist(any(CompensacionStock.class));
     verify(entityManager).flush();
   }

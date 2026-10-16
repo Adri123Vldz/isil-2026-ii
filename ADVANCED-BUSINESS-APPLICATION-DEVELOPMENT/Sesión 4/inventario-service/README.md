@@ -69,7 +69,15 @@ POST /inventario-service/api/inventario/productos/1/reservas
 POST /inventario-service/api/inventario/productos/codigo/LAP-001/devoluciones
 ```
 
-La petición de devolución recibe `pedidoId`, `operacionId` (UUID generado y persistido por Pedidos) y `cantidad`. `operacion_id` es clave primaria en la tabla de compensaciones; el stock y la marca de compensación se actualizan en una sola transacción. Un reintento con el mismo UUID, pedido, producto y cantidad confirma la operación original sin volver a sumar stock; datos distintos para el mismo UUID producen `409 Conflict`.
+El contrato básico de devolución recibe `cantidad` y responde con `codigo`, `cantidadDevuelta` y `stockRestante`. Para que los reintentos sean idempotentes, envía además `pedidoId` y `operacionId` (UUID persistido por Pedidos); ambos deben enviarse juntos. `operacion_id` es clave primaria en la tabla de compensaciones; el stock y la marca de compensación se actualizan en una sola transacción. Un reintento con el mismo UUID, pedido, producto y cantidad confirma la operación original sin volver a sumar stock; datos distintos para el mismo UUID producen `409 Conflict`. Una solicitud sin esos dos metadatos genera identificadores de operación nuevos y no puede deduplicar reintentos del cliente.
+
+Body mínimo para devolución:
+
+```json
+{
+  "cantidad": 2
+}
+```
 
 Body de reserva:
 

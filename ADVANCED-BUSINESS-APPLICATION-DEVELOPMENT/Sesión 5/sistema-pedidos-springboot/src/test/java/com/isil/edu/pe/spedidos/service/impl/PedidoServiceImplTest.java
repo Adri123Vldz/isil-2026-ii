@@ -17,10 +17,11 @@ import com.isil.edu.pe.spedidos.client.InventarioNoDisponibleException;
 import com.isil.edu.pe.spedidos.client.dto.ReservaStockResponse;
 import com.isil.edu.pe.spedidos.client.dto.DevolucionStockResponse;
 import com.isil.edu.pe.spedidos.entity.Pedido;
-import com.isil.edu.pe.spedidos.entity.PedidoAuditoria;
+import com.isil.edu.pe.spedidos.entity.AnulacionPedido;
+import com.isil.edu.pe.spedidos.entity.PedidoEstado;
 import com.isil.edu.pe.spedidos.exception.PedidoException;
 import com.isil.edu.pe.spedidos.exception.PedidoYaAnuladoException;
-import com.isil.edu.pe.spedidos.repository.PedidoAuditoriaRepository;
+import com.isil.edu.pe.spedidos.repository.AnulacionPedidoRepository;
 import com.isil.edu.pe.spedidos.repository.PedidoRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.Test;
 class PedidoServiceImplTest {
 
   private PedidoRepository pedidoRepository;
-  private PedidoAuditoriaRepository pedidoAuditoriaRepository;
+  private AnulacionPedidoRepository anulacionPedidoRepository;
   private InventarioClient inventarioClient;
   private PedidoServiceImpl pedidoService;
 
@@ -55,12 +56,12 @@ class PedidoServiceImplTest {
   @BeforeEach
   void setUp() {
     pedidoRepository = mock(PedidoRepository.class);
-    pedidoAuditoriaRepository = mock(PedidoAuditoriaRepository.class);
+    anulacionPedidoRepository = mock(AnulacionPedidoRepository.class);
     inventarioClient = mock(InventarioClient.class);
 
     pedidoService = new PedidoServiceImpl(
         pedidoRepository,
-        pedidoAuditoriaRepository,
+        anulacionPedidoRepository,
         inventarioClient
     );
   }
@@ -188,7 +189,7 @@ class PedidoServiceImplTest {
     boolean anulado = pedidoService.anularPedido(42L);
 
     assertTrue(anulado);
-    assertEquals(Pedido.Estado.CANCELADO, pedido.getEstado());
+    assertEquals(PedidoEstado.ANULADO, pedido.getEstado());
     assertTrue(pedido.getFechaAnulacion() != null);
     verify(pedidoRepository).findByIdForUpdate(42L);
     verify(inventarioClient).devolverStock(
@@ -198,7 +199,7 @@ class PedidoServiceImplTest {
         1
     );
     verify(pedidoRepository).save(pedido);
-    verify(pedidoAuditoriaRepository).save(any(PedidoAuditoria.class));
+    verify(anulacionPedidoRepository).save(any(AnulacionPedido.class));
   }
 
   @Test
@@ -209,7 +210,7 @@ class PedidoServiceImplTest {
 
     assertFalse(anulado);
     verify(pedidoRepository).findByIdForUpdate(42L);
-    verifyNoInteractions(inventarioClient, pedidoAuditoriaRepository);
+    verifyNoInteractions(inventarioClient, anulacionPedidoRepository);
   }
 
   @Test
@@ -217,7 +218,7 @@ class PedidoServiceImplTest {
     boolean anulado = pedidoService.anularPedido(0L);
 
     assertFalse(anulado);
-    verifyNoInteractions(pedidoRepository, inventarioClient, pedidoAuditoriaRepository);
+    verifyNoInteractions(pedidoRepository, inventarioClient, anulacionPedidoRepository);
   }
 
   @Test
@@ -235,11 +236,11 @@ class PedidoServiceImplTest {
     when(pedidoRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(pedido));
 
     assertThrows(PedidoYaAnuladoException.class, () -> pedidoService.anularPedido(42L));
-    verifyNoInteractions(inventarioClient, pedidoAuditoriaRepository);
+    verifyNoInteractions(inventarioClient, anulacionPedidoRepository);
   }
 
   @Test
-  void conservaPedidoActivoSiInventarioNoPuedeCompletarLaDevolucion() {
+  void conservaPedidoRegistradoSiInventarioNoPuedeCompletarLaDevolucion() {
     Pedido pedido = new Pedido(
         "Ana Torres",
         "LAP-001",
@@ -263,8 +264,8 @@ class PedidoServiceImplTest {
         () -> pedidoService.anularPedido(42L)
     );
 
-    assertEquals(Pedido.Estado.ACTIVO, pedido.getEstado());
-    verifyNoInteractions(pedidoAuditoriaRepository);
+    assertEquals(PedidoEstado.REGISTRADO, pedido.getEstado());
+    verifyNoInteractions(anulacionPedidoRepository);
   }
 
   private ReservaStockResponse nuevaReserva(

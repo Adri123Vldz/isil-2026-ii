@@ -2,14 +2,14 @@
 
 ## Resultado
 
-La cancelación conserva el pedido, devuelve el stock mediante Inventario, guarda el estado `CANCELADO` y registra una auditoría local en H2. Las llamadas repetidas no duplican el stock: Inventario trata la devolución como idempotente por `pedidoId`, mientras que Pedidos responde `409 Conflict` cuando el pedido ya está cancelado.
+La anulación conserva el pedido, devuelve el stock mediante Inventario, guarda el estado `ANULADO` y registra una entidad `AnulacionPedido` local en H2. Las llamadas repetidas no duplican el stock: Inventario trata la devolución como idempotente por `pedidoId` y UUID de operación, mientras que Pedidos responde `409 Conflict` cuando el pedido ya está anulado. La API de anulaciones expone `POST` y `GET /api/v1/anulaciones`; se conserva `DELETE /api/v1/orders/{pedidoId}` para compatibilidad con la interfaz anterior.
 
 ## Flujo y manejo de fallos
 
 1. Pedidos obtiene el pedido con bloqueo pesimista para serializar cancelaciones concurrentes.
 2. Llama a `POST /api/inventario/productos/codigo/{codigo}/devoluciones` con `pedidoId`, UUID `operacionId` y `cantidad`.
 3. Inventario bloquea el producto y registra la compensación en la misma transacción que incrementa el stock. El UUID persistente es clave primaria en `compensacion_stock`.
-4. Solo tras una respuesta coherente, Pedidos actualiza el estado y la fecha y persiste `pedido_auditoria` en la transacción local.
+4. Solo tras una respuesta coherente, Pedidos actualiza el estado y la fecha y persiste `AnulacionPedido` mediante `AnulacionPedidoRepository` en la transacción local.
 5. Si Inventario no está disponible, la transacción local revierte y el pedido queda activo (`503`). Un reintento es seguro incluso si la primera respuesta remota se perdió. Los almacenes de ambos servicios son independientes; no se usa una transacción distribuida.
 
 ## Archivos modificados o añadidos
@@ -29,14 +29,15 @@ La cancelación conserva el pedido, devuelve el stock mediante Inventario, guard
 ### Pedidos (`Sesión 5/sistema-pedidos-springboot`)
 
 - `entity/Pedido.java`: estado, fecha y UUID persistente de la operación de anulación.
-- `entity/PedidoAuditoria.java`: evento de cancelación persistido en H2.
+- `entity/AnulacionPedido.java`, `entity/PedidoEstado.java`: registro de anulación y estados `REGISTRADO`/`ANULADO`.
 - `repository/PedidoRepository.java`: consulta con bloqueo para evitar doble cancelación concurrente.
-- `repository/PedidoAuditoriaRepository.java`: persistencia del evento de auditoría.
+- `repository/AnulacionPedidoRepository.java`: persistencia y consulta de las anulaciones.
 - `client/InventarioClient.java`, `client/InventarioRestClient.java`, `client/dto/DevolucionStockRequest.java`, `client/dto/DevolucionStockResponse.java`: integración HTTP.
+- `service/AnulacionPedidoService.java`, `service/impl/AnulacionPedidoServiceImpl.java`: contrato y lógica de consulta/registro de anulaciones.
 - `service/PedidoService.java`, `service/impl/PedidoServiceImpl.java`: coordinación de compensación y persistencia local.
 - `exception/PedidoYaAnuladoException.java`, `controller/PedidoApiController.java`: respuesta 409 para repetición, 503 para indisponibilidad y 502 para rechazo/respuesta remota inconsistente.
 - `controller/dto/PedidoResponse.java`: expone `estado` y `fechaAnulacion`.
-- Pruebas del servicio y MockMvc cubren anulación, duplicado, ausencia e indisponibilidad.
+- Pruebas del servicio y MockMvc cubren anulación, listado, duplicado, ausencia e indisponibilidad.
 - `README.md`, `arquitectura-anulacion.puml` y Postman: guía, diagrama y solicitud de API.
 
 ## Códigos HTTP
@@ -54,15 +55,15 @@ La cancelación conserva el pedido, devuelve el stock mediante Inventario, guard
 Verificaciones ejecutadas después de los cambios:
 
 ```powershell
-# Sesión 4/inventario-service
-mvn clean verify
-
 # Sesión 5/sistema-pedidos-springboot
 .\mvnw.cmd clean verify
+
+# Sesión 4/inventario-service
+mvn test
 ```
 
-- Inventario: `BUILD SUCCESS`; 7 pruebas ejecutadas, 0 fallos, 0 errores.
-- Pedidos: `BUILD SUCCESS`; 15 pruebas ejecutadas, 0 fallos, 0 errores; WAR generado.
+- Pedidos: `BUILD SUCCESS`; 20 pruebas ejecutadas, 0 fallos, 0 errores; WAR generado.
+- Inventario: compilación y 7 pruebas ejecutadas, 0 fallos, 0 errores. El empaquetado/provisionamiento de WildFly no se completó porque `target/server` contiene una instalación previa y Windows no permitió limpiar un `server.log` bloqueado.
 - `git diff --check` sin errores; la colección Postman pasó la validación JSON.
 
 Los cinco escenarios manuales están definidos en el README, pero requieren SQL Server/WildFly y ambos servicios en ejecución; no se incluyen capturas ficticias ni se afirma que se haya hecho una llamada HTTP real.

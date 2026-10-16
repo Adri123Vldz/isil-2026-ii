@@ -20,6 +20,8 @@ button:hover { opacity: .88; }
 .alerta.exito { background: #effaf1; border: 1px solid #b8ddbf; }
 .titulo-tabla p { margin-top: -8px; color: #667085; }
 .tabla-scroll { overflow-x: auto; }
+.boton-devolver { min-height: 36px; padding: 0 12px; white-space: nowrap; background: #a83232; }
+.boton-devolver:hover { background: #872626; opacity: 1; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 12px 10px; border-bottom: 1px solid #e4e7eb; text-align: left; }
 th { font-size: .84rem; text-transform: uppercase; letter-spacing: .04em; }

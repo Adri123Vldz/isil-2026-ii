@@ -12,6 +12,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
+import java.util.UUID;
 import pe.edu.isil.inventario.domain.ProductoInventario;
 import pe.edu.isil.inventario.dto.ProductoResponse;
 import pe.edu.isil.inventario.dto.DevolucionStockRequest;
@@ -93,10 +94,20 @@ public class ProductoResource {
       @PathParam("codigo") String codigo,
       @NotNull @Valid DevolucionStockRequest request
   ) {
+    UUID requestId = UUID.randomUUID();
+    long pedidoId = request.getPedidoId() == null
+        ? requestId.getMostSignificantBits() & Long.MAX_VALUE
+        : request.getPedidoId();
+    if (pedidoId == 0) {
+      pedidoId = 1;
+    }
+    String operacionId = request.getOperacionId() == null
+        ? requestId.toString()
+        : request.getOperacionId();
     DevolucionStockResponse response = inventarioService.devolverStockPorCodigo(
         codigo,
-        request.getPedidoId(),
-        request.getOperacionId(),
+        pedidoId,
+        operacionId,
         request.getCantidad()
     );
     return Response.ok(response).build();

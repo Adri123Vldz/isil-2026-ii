@@ -1,16 +1,19 @@
 @startuml
 actor Cliente
 participant "PedidoApiController\n(Spring Boot)" as API
+participant "AnulacionPedidoApiController" as AnulacionAPI
 participant "PedidoServiceImpl" as Service
-database "H2\npedido + pedido_auditoria" as H2
+participant "AnulacionPedidoServiceImpl" as AnulacionService
+database "H2\npedido + anulacion_pedido" as H2
 participant "InventarioResource\n(Jakarta REST)" as Inventory
 participant "InventarioService\n(JTA)" as InventoryService
 database "SQL Server\nproducto + compensacion_stock" as SQL
 
-Cliente -> API: DELETE /api/v1/orders/{pedidoId}
-API -> Service: anularPedido(pedidoId)
+Cliente -> AnulacionAPI: POST /api/v1/anulaciones\n(pedidoId, motivo?)
+AnulacionAPI -> AnulacionService: registrarAnulacion(pedidoId, motivo)
+AnulacionService -> Service: anularPedido(pedidoId, motivo)
 Service -> H2: obtener pedido con bloqueo
-H2 --> Service: pedido ACTIVO
+H2 --> Service: pedido REGISTRADO
 Service -> Inventory: POST devoluciones\n(pedidoId, operationId UUID, cantidad)
 Inventory -> InventoryService: devolverStockPorCodigo(...)
 InventoryService -> SQL: bloquear producto y consultar compensación
@@ -22,9 +25,10 @@ else reintento remoto del mismo pedido
   InventoryService --> Inventory: resultado previo; no cambia stock
 end
 Inventory --> Service: devolución confirmada
-Service -> H2: estado CANCELADO + fecha + auditoría
-Service --> API: completado
-API --> Cliente: 204 No Content
+Service -> H2: estado ANULADO + fecha + AnulacionPedido
+Service --> AnulacionService: anulación persistida
+AnulacionService --> AnulacionAPI: resultado
+AnulacionAPI --> Cliente: 201 Created + anulación
 
 note over H2,SQL
 Los almacenes no comparten transacción.

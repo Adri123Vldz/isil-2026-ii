@@ -90,7 +90,7 @@ public interface PedidoService {
   );
 
   /**
-   * Anula un pedido, compensa el stock en Inventario y registra la auditoría local.
+   * Anula un pedido, compensa el stock en Inventario y registra la anulación en H2.
    *
    * @param pedidoId identificador del pedido que se desea anular
    * @return {@code true} si el pedido existía y fue anulado;
@@ -98,6 +98,8 @@ public interface PedidoService {
    * @throws com.isil.edu.pe.spedidos.exception.PedidoYaAnuladoException si ya fue anulado
    */
   boolean anularPedido(long pedidoId);
+
+  boolean anularPedido(long pedidoId, String motivo);
 
   /**
    * Obtiene los productos disponibles desde el servicio externo
