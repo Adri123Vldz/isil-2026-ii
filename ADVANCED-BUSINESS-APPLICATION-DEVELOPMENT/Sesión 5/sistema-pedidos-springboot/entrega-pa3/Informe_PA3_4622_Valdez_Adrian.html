@@ -28,6 +28,12 @@
     .note { border-left: 4px solid #df9b21; background: #fff7e6; padding: 8pt 10pt; margin: 10pt 0; }
     .status { font-weight: bold; color: #9c5c00; }
     .flow { background: #f0f5f8; padding: 8pt; font-family: Consolas, monospace; font-size: 9pt; }
+    .evidence-main { width: 100%; height: auto; border: 1px solid #d5dee6; border-radius: 6px; }
+    .evidence-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; margin-top: 9pt; }
+    .evidence-pair figure { margin: 0; }
+    .evidence-pair img { display: block; width: 100%; height: auto; border: 1px solid #d5dee6; border-radius: 5px; }
+    figure { margin: 8pt 0; }
+    figcaption { margin-top: 3pt; color: #48596b; font-size: 8pt; }
     a { color: #145c88; text-decoration: none; }
     .small { font-size: 8.5pt; color: #48596b; }
   </style>
@@ -147,10 +153,30 @@
   </section>
 
   <section class="page">
-    <h2>5. Conclusiones y referencias</h2>
+    <h2>5. Evidencia visual de los reportes</h2>
+    <p>La vista JSP presenta las métricas generales en dos columnas: conceptos a la izquierda y valores alineados a la derecha. Las capturas siguientes se obtuvieron desde la aplicación local con el usuario de consulta y el perfil demo de H2.</p>
+    <figure>
+      <img class="evidence-main" src="evidencias/demostracion-h2/resumen-general.png" alt="Vista JSP de reportes con el resumen general en dos columnas">
+      <figcaption>Figura 1. Vista de reportes y diseño actualizado del resumen general. Datos de demostración en H2.</figcaption>
+    </figure>
+    <div class="evidence-pair">
+      <figure>
+        <img src="evidencias/demostracion-h2/busqueda-cliente-monto.png" alt="Resultado de búsqueda de pedidos de Ana con total mínimo 1000">
+        <figcaption>Figura 2. Búsqueda por cliente Ana y total mínimo S/ 1,000: pedido de Laptop por S/ 5,000.</figcaption>
+      </figure>
+      <figure>
+        <img src="evidencias/demostracion-h2/clientes-frecuentes.png" alt="Clientes frecuentes con mínimo de dos pedidos">
+        <figcaption>Figura 3. Clientes frecuentes con umbral de dos pedidos y sus cuatro métricas agregadas.</figcaption>
+      </figure>
+    </div>
+    <p class="small">Estas capturas documentan una demostración web real con H2 y datos semilla; no son una validación de MySQL ni reemplazan las evidencias pendientes de los cinco escenarios manuales.</p>
+  </section>
+
+  <section class="page">
+    <h2>6. Conclusiones y referencias</h2>
     <h3>Conclusiones</h3>
     <ol>
-      <li>La aplicación conserva la separación entre controladores, servicio y repositorio, y comparte la lógica de reportes entre JSP y API.</li>
+      <li>La aplicación conserva la separación entre controladores, servicio y repositorio, comparte la lógica de reportes entre JSP y API y presenta el resumen con etiquetas y valores alineados en dos columnas.</li>
       <li>Las dos consultas nuevas utilizan Spring JDBC con parámetros nombrados; el reporte agregado usa GROUP BY/HAVING y una proyección tipada.</li>
       <li>La configuración conserva la autorización por rol y CSRF. La suite automatizada confirma el comportamiento cubierto bajo H2.</li>
       <li>La rama de trabajo está publicada en el fork personal y las 38 pruebas automatizadas pasan. El perfil demo de H2 facilita una ejecución reproducible sin MySQL; para acreditar la compatibilidad solicitada y cerrar la evidencia manual todavía se requiere ejecutar los cinco escenarios con MySQL y los servicios activos.</li>
