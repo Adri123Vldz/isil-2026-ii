@@ -308,6 +308,9 @@ Los mappings se escriben **sin** el contexto; en el navegador o cliente HTTP se 
 | GET | `/api/v1/pedidos/estadisticas/resumen` | `PedidoReporteController` **[S09]** | **RMM 2:** JSON, `GET` y `200 OK`; `JdbcTemplate.queryForObject()`. |
 | GET | `/api/v1/pedidos?cliente=Ana` | `PedidoReporteController` **[S09]** | **RMM 1:** arreglo JSON sin `_links`; filtro mediante `NamedParameterJdbcTemplate`. |
 | GET | `/api/v1/pedidos/estadisticas/productos` | `PedidoReporteController` **[S09]** | **RMM 3:** HAL/HATEOAS; agrupación mediante `JdbcTemplate.query()`. |
+| GET | `/api/v1/pedidos/busqueda-avanzada?cliente=Ana&totalMinimo=100` | `PedidoReporteController` **[PA3]** | Pedidos coincidentes con cliente y total mínimo; parámetros nombrados. |
+| GET | `/api/v1/pedidos/clientes-frecuentes?minPedidos=2` | `PedidoReporteController` **[PA3]** | Métricas agregadas por cliente con `GROUP BY` y `HAVING`. |
+| GET | `/reportes/pedidos` | `PedidoReporteWebController` **[PA3]** | Vista JSP con resumen, búsqueda avanzada y clientes frecuentes. |
 | GET/POST | `/login` | Spring Security | Formulario de login y procesamiento de autenticación. |
 | POST | `/logout` | Spring Security | Cierre de sesión (requiere token CSRF válido). |
 
@@ -360,6 +363,7 @@ Un **400 con un token CSRF válido** no significa que CSRF falló: puede indicar
 | GET `/pedidos` | Login requerido | Permitido | Permitido |
 | GET `/api/v1/orders` | Login requerido | Permitido | Permitido |
 | GET `/api/v1/orders/resumen` | Login requerido | Permitido | Permitido |
+| GET `/reportes/pedidos` | Login requerido | Permitido | Permitido |
 | POST `/pedidos` con CSRF válido | Login requerido | **403** | Permitido si cumple reglas de negocio |
 | POST `/pedidos` sin CSRF válido | Rechazado | **403** | **403** |
 | GET `/api/v1/pedidos/**` | Login requerido | Permitido | Permitido |
@@ -526,6 +530,20 @@ DataSource MySQL (runtime) / H2 (test)
 
 El flujo operacional existente continúa utilizando `PedidoService` y `PedidoRepository` con Spring Data JPA. La integración HTTP con `inventario-service` no cambia.
 
+En PA3, la vista JSP y los endpoints JSON comparten el mismo servicio de reportes:
+
+```text
+GET /reportes/pedidos --------------------+
+GET /api/v1/pedidos/busqueda-avanzada ----+--> PedidoReporteService
+GET /api/v1/pedidos/clientes-frecuentes --+          |
+                                                    v
+                                      PedidoReporteJdbcRepository
+                                      NamedParameterJdbcTemplate
+                                                    |
+                                                    v
+                                           MySQL / H2 de pruebas
+```
+
 ### Dependencias relevantes
 
 ```xml
@@ -558,6 +576,28 @@ El flujo operacional existente continúa utilizando `PedidoService` y `PedidoRep
 | GET | `/api/v1/pedidos/estadisticas/productos` | Agrupación por producto con unidades e importe acumulado. | `JdbcTemplate.query()` + `GROUP BY` |
 
 Las tres rutas requieren autenticación y admiten los roles de laboratorio `OPERADOR` y `CONSULTA`.
+
+### Reportes ampliados — PA3
+
+La búsqueda avanzada aplica un filtro parcial, sin distinguir mayúsculas, sobre el nombre del cliente y exige `total >= totalMinimo`. Los resultados se ordenan por ID descendente. El reporte de clientes frecuentes agrupa por cliente y devuelve `totalPedidos`, `totalUnidades`, `importeAcumulado` y `ticketPromedio`, incluyendo únicamente clientes que alcanzan `minPedidos`.
+
+| Método | Ruta relativa | Propósito |
+|---|---|---|
+| GET | `/api/v1/pedidos/busqueda-avanzada?cliente=Ana&totalMinimo=100` | Buscar pedidos por cliente y monto mínimo. |
+| GET | `/api/v1/pedidos/clientes-frecuentes?minPedidos=2` | Consultar clientes que alcanzan la cantidad mínima de pedidos. |
+| GET | `/reportes/pedidos` | Abrir la vista JSP que consume `PedidoReporteService`. |
+
+Los parámetros se validan en el servicio: el cliente no puede estar vacío, `totalMinimo` no puede ser negativo y `minPedidos` debe ser al menos 1. La API responde `400 Bad Request` con un mensaje cuando una validación de negocio falla. Las consultas JDBC usan parámetros nombrados; los reportes no invocan `inventario-service`.
+
+### Escenarios de verificación manual
+
+1. **Búsqueda filtrada:** iniciar sesión como `consulta`, abrir `/reportes/pedidos` y buscar `cliente=Ana` con un monto mínimo. Verificar que cada fila coincide con el cliente y tiene un total igual o superior al mínimo, en orden descendente por ID.
+2. **Clientes frecuentes:** enviar `GET /api/v1/pedidos/clientes-frecuentes?minPedidos=2` o usar el formulario JSP. Contrastar las cuatro métricas con los pedidos persistidos para ese cliente.
+3. **Parámetros inválidos:** probar `totalMinimo=-1`, `cliente` vacío y `minPedidos=0`. La API debe rechazar las consultas con HTTP 400; el formulario muestra el mensaje de validación.
+4. **Inventario no disponible:** con MySQL accesible, detener temporalmente `inventario-service` y volver a cargar `/reportes/pedidos`. Los reportes deben seguir funcionando porque consultan la base local y no llaman al servicio de inventario. Restaurar el servicio al finalizar.
+5. **Autorización y CSRF:** comprobar que un usuario anónimo recibe redirección al login, que `consulta` puede abrir reportes y que solo `operador` puede registrar pedidos. Un POST sin token CSRF debe ser rechazado con 403; la protección CSRF permanece habilitada.
+
+Estos pasos son un guion reproducible, no evidencia de que los servicios externos se hayan ejecutado durante la implementación.
 
 ### Modelo de Madurez de Richardson — demostracion progresiva
 
@@ -606,7 +646,16 @@ Ejemplo conceptual **nivel 3** (la forma exacta de `_embedded` depende de la ser
 | Clase | Nivel | Verificación |
 |---|---|---|
 | `PedidoReporteJdbcRepositoryTest` | Integración con H2 | SQL agregado, parámetros con nombre, `RowMapper` y agrupaciones. |
-| `PedidoReporteControllerIntegrationTest` | Integración MVC + H2 | Representaciones JSON sin hipermedia (niveles 1 y 2), HAL (nivel 3), seguridad y rutas REST. |
+| `PedidoReporteControllerIntegrationTest` | Integración MVC + H2 | Representaciones JSON existentes, búsqueda avanzada, clientes frecuentes, validación y vista JSP. |
+| `PedidoReporteServiceImplTest` | Unitarias | Rechazo de cliente vacío, monto negativo y mínimo de pedidos inválido. |
+| `PedidoSecurityIntegrationTest` | Integración de seguridad | Acceso al reporte, autenticación, permisos por rol y protección CSRF existente. |
+
+### Material de entrega PA3
+
+- [Informe PDF](./entrega-pa3/Informe_PA3_4622_Valdez_Adrian.pdf) y [fuente HTML editable](./entrega-pa3/Informe_PA3_4622_Valdez_Adrian.html).
+- [Diagrama de arquitectura](./.github/modernize/assessment/engines/facts/architecture-diagram.md) con vista general y relaciones entre componentes.
+- [Evidencia automatizada](./entrega-pa3/evidencias/automatizadas/mvn-clean-test.log) y reportes XML de Surefire.
+- [Matriz de evidencias manuales](./entrega-pa3/evidencias/README.md): documenta lo ejecutado y lo pendiente sin presentar capturas simuladas.
 
 Para ejecutar toda la suite:
 

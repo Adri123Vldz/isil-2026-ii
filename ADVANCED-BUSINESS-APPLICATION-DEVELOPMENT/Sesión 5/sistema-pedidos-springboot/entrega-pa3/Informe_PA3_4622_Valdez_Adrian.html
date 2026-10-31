@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>PA3 - Sistema de Pedidos</title>
+  <style>
+    @page { size: A4; margin: 17mm 18mm 17mm 18mm; }
+    * { box-sizing: border-box; }
+    body { font: 10.5pt/1.42 Arial, sans-serif; color: #172033; margin: 0; }
+    h1 { font-size: 23pt; color: #12355b; margin: 0 0 12pt; }
+    h2 { font-size: 16pt; color: #12355b; border-bottom: 2px solid #168aad; padding-bottom: 5pt; margin: 0 0 11pt; }
+    h3 { font-size: 11pt; color: #146c80; margin: 10pt 0 4pt; }
+    p { margin: 5pt 0 8pt; }
+    ul, ol { margin: 5pt 0 8pt; padding-left: 19pt; }
+    li { margin: 3pt 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8pt 0; font-size: 9pt; }
+    th { background: #e8f3f8; color: #12355b; text-align: left; }
+    th, td { border: 1px solid #b8c8d6; padding: 5pt 6pt; vertical-align: top; }
+    .cover { height: 258mm; display: flex; flex-direction: column; justify-content: center; text-align: center; page-break-after: always; }
+    .cover .institution { letter-spacing: 1.5pt; text-transform: uppercase; color: #146c80; font-size: 13pt; }
+    .cover h1 { font-size: 27pt; margin: 35pt 0 9pt; }
+    .cover .subtitle { font-size: 15pt; color: #3d5268; }
+    .cover .meta { margin: 45pt auto 0; text-align: left; width: 78%; font-size: 12pt; line-height: 2; }
+    .cover .period { margin-top: 40pt; color: #56697c; }
+    .page { min-height: 258mm; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .note { border-left: 4px solid #df9b21; background: #fff7e6; padding: 8pt 10pt; margin: 10pt 0; }
+    .status { font-weight: bold; color: #9c5c00; }
+    .flow { background: #f0f5f8; padding: 8pt; font-family: Consolas, monospace; font-size: 9pt; }
+    a { color: #145c88; text-decoration: none; }
+    .small { font-size: 8.5pt; color: #48596b; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="institution">ISIL</div>
+    <h1>Informe de desarrollo<br>Proceso de Aprendizaje 3</h1>
+    <div class="subtitle">Módulo de consulta y supervisión del Sistema de Pedidos</div>
+    <div class="meta">
+      <div><strong>Curso:</strong> Desarrollo de Aplicaciones Empresariales Avanzado</div>
+      <div><strong>NRC:</strong> 4622</div>
+      <div><strong>Estudiante:</strong> Adrian Antonio Valdez Lozada</div>
+      <div><strong>Docente:</strong> [Completar con el nombre indicado en el curso]</div>
+      <div><strong>Periodo:</strong> 2026-20</div>
+    </div>
+    <div class="period">Entrega individual · PA3</div>
+  </section>
+
+  <section class="page">
+    <h2>1. Objetivo y solución desarrollada</h2>
+    <p>El objetivo de esta PA3 es ampliar el Sistema de Pedidos con funciones de consulta y supervisión, aplicando Spring MVC con JSP, una API REST/JSON, controles de Spring Security y consultas explícitas con Spring JDBC. Se conserva el CRUD existente con Spring Data JPA y la integración HTTP con el servicio de inventario.</p>
+    <p>El alcance funcional de esta iteración no vuelve a implementar las operaciones completas de edición/eliminación ni el flujo de anulación de PA2. Se concentra en consultar los pedidos almacenados y consolidar indicadores por cliente.</p>
+    <h3>Arquitectura de la solicitud</h3>
+    <div class="flow">Navegador → Spring Security → DispatcherServlet → Controller JSP / API JSON → PedidoReporteService → PedidoReporteJdbcRepository → MySQL<br>PedidoService → PedidoRepository (JPA) para pedidos · InventarioRestClient → inventario-service para operaciones de inventario</div>
+    <p>La vista JSP y los dos nuevos endpoints JSON llaman al mismo servicio de reportes. La búsqueda avanzada y los agregados se ejecutan contra el historial local; no consultan inventario-service. El diagrama completo de dos niveles se adjunta como archivo Markdown en el proyecto.</p>
+    <h3>Organización por capa</h3>
+    <table>
+      <thead><tr><th>Capa</th><th>Responsabilidad PA3</th><th>Componentes representativos</th></tr></thead>
+      <tbody>
+        <tr><td>Presentación</td><td>Recibir solicitudes, entregar JSP o JSON.</td><td>PedidoReporteWebController, PedidoReporteController y reportes-pedidos.jsp.</td></tr>
+        <tr><td>Negocio</td><td>Validar parámetros y compartir operaciones de reporte.</td><td>PedidoReporteService e implementación.</td></tr>
+        <tr><td>Persistencia</td><td>SQL parametrizado y mapeo de resultados; JPA permanece para CRUD.</td><td>PedidoReporteJdbcRepository, PedidoRowMapper y proyección agregada.</td></tr>
+        <tr><td>Seguridad</td><td>Autenticación, autorización por rol y protección CSRF.</td><td>SecurityConfig y filtros de Spring Security.</td></tr>
+      </tbody>
+    </table>
+    <p class="small">El código está en la rama local <code>feature/pa3-adrian</code> basada en la rama de trabajo del docente. Aún no se ha creado un commit ni se ha publicado al fork personal.</p>
+  </section>
+
+  <section class="page">
+    <h2>2. Consultas con Spring JDBC</h2>
+    <h3>Búsqueda avanzada</h3>
+    <p><code>buscarPedidosPorClienteYTotalMinimo(cliente, totalMinimo)</code> utiliza <code>NamedParameterJdbcTemplate</code> con parámetros separados para el cliente y el monto. La búsqueda parcial no distingue mayúsculas/minúsculas, filtra <code>total &gt;= totalMinimo</code>, reutiliza <code>PedidoRowMapper</code> y ordena por ID descendente.</p>
+    <h3>Clientes frecuentes</h3>
+    <p><code>listarClientesFrecuentes(minPedidos)</code> agrupa por cliente y aplica <code>HAVING COUNT(*) &gt;= :minPedidos</code>. La proyección retorna:</p>
+    <ul>
+      <li><strong>totalPedidos:</strong> cantidad de pedidos incluidos.</li>
+      <li><strong>totalUnidades:</strong> suma de las cantidades.</li>
+      <li><strong>importeAcumulado:</strong> suma del total de pedidos.</li>
+      <li><strong>ticketPromedio:</strong> promedio del total por pedido.</li>
+    </ul>
+    <p>Los valores aportados por el usuario no se concatenan al SQL. La capa Service exige un cliente no vacío, un monto mínimo no negativo y un mínimo de pedidos igual o mayor a uno. Las entradas inválidas se responden como HTTP 400 en la API.</p>
+    <h3>Convivencia de persistencia</h3>
+    <table>
+      <thead><tr><th>Mecanismo</th><th>Uso</th><th>Base de datos</th></tr></thead>
+      <tbody>
+        <tr><td>Spring Data JPA</td><td>Operación CRUD transaccional existente de pedidos.</td><td>MySQL en ejecución normal; H2 en pruebas.</td></tr>
+        <tr><td>Spring JDBC</td><td>Reportes de solo lectura y agregados explícitos requeridos por PA3.</td><td>El mismo DataSource MySQL; H2 para pruebas.</td></tr>
+        <tr><td>HTTP RestClient</td><td>Consulta/reserva de inventario durante el alta de pedidos.</td><td>Servicio Jakarta EE externo con SQL Server.</td></tr>
+      </tbody>
+    </table>
+    <p>Separar las consultas de reporte de la persistencia JPA permite cumplir el requisito de SQL explícito sin sustituir el flujo existente. H2 se activa mediante el perfil de pruebas y permite comprobar las consultas sin MySQL.</p>
+  </section>
+
+  <section class="page">
+    <h2>3. Spring MVC, API y seguridad</h2>
+    <h3>Vista web</h3>
+    <p><code>GET /reportes/pedidos</code> se atiende mediante un controlador Spring MVC que recibe <code>Model</code> y selecciona la vista <code>reportes-pedidos.jsp</code>. La página presenta el resumen de pedidos, un formulario de cliente y monto mínimo, y un formulario para indicar el umbral de frecuencia. No genera HTML desde el controlador ni duplica reglas de negocio.</p>
+    <h3>Endpoints JSON</h3>
+    <table>
+      <thead><tr><th>Método y ruta</th><th>Resultado</th></tr></thead>
+      <tbody>
+        <tr><td>GET /api/v1/pedidos/busqueda-avanzada?cliente=Ana&amp;totalMinimo=100</td><td>Arreglo JSON de pedidos que cumplen ambos filtros.</td></tr>
+        <tr><td>GET /api/v1/pedidos/clientes-frecuentes?minPedidos=2</td><td>Arreglo JSON con los clientes que alcanzan el umbral y sus cuatro métricas.</td></tr>
+      </tbody>
+    </table>
+    <h3>Controles de acceso</h3>
+    <ul>
+      <li>Los roles <code>OPERADOR</code> y <code>CONSULTA</code> pueden realizar GET a los reportes web y REST.</li>
+      <li>El rol <code>CONSULTA</code> no puede registrar pedidos con POST a <code>/pedidos</code>.</li>
+      <li>Un usuario sin sesión es dirigido al formulario de autenticación.</li>
+      <li>CSRF permanece habilitado. El POST requiere token válido incluso para <code>OPERADOR</code>.</li>
+    </ul>
+    <p>La autenticación es de laboratorio, con usuarios en memoria y claves externalizables. No se agregan JWT, OAuth2 ni persistencia de usuarios, porque no forman parte del requerimiento.</p>
+    <h3>Continuidad ante inventario no disponible</h3>
+    <p>Las consultas nuevas se apoyan en el historial local de MySQL, por lo que su ruta de ejecución no requiere el cliente HTTP de inventario. La operación de alta sí depende de inventario-service para consultar o reservar el stock. El comportamiento de ambos casos debe verificarse manualmente en el entorno de ejecución.</p>
+  </section>
+
+  <section class="page">
+    <h2>4. Pruebas automatizadas y casos funcionales</h2>
+    <h3>Resultado automatizado verificado</h3>
+    <p>Se ejecutó <code>mvnw clean test</code> en el proyecto Spring Boot con el perfil <code>test</code>. Resultado de la ejecución: <strong>33 pruebas, 0 fallos, 0 errores, 0 omitidas</strong>. El registro de consola y los reportes Surefire se adjuntan en <code>entrega-pa3/evidencias/</code>.</p>
+    <table>
+      <thead><tr><th>Prueba</th><th>Verificación añadida para PA3</th><th>Resultado</th></tr></thead>
+      <tbody>
+        <tr><td>Repositorio JDBC</td><td>Filtro cliente/monto, orden descendente y agregados GROUP BY/HAVING.</td><td>Correcta con H2</td></tr>
+        <tr><td>Servicio de reportes</td><td>Rechazo de cliente vacío, monto negativo y umbral menor a uno.</td><td>Correcta con Mockito</td></tr>
+        <tr><td>API y MVC</td><td>JSON de ambos reportes, HTTP 400 y renderización de la vista.</td><td>Correcta con MockMvc/H2</td></tr>
+        <tr><td>Seguridad</td><td>Acceso autorizado al reporte y redirección de usuario anónimo.</td><td>Correcta con Spring Security Test</td></tr>
+      </tbody>
+    </table>
+    <h3>Estado de los cinco escenarios manuales</h3>
+    <div class="note"><span class="status">Pendiente de ejecución manual:</span> en esta sesión no estaban disponibles MySQL en localhost:3306, Sistema de Pedidos en localhost:8081 ni inventario-service en localhost:8082. Por ello no se afirma haber obtenido capturas de esos escenarios.</div>
+    <ol>
+      <li>Búsqueda por cliente y monto: falta ejecutar y contrastar JSP, API y filas MySQL.</li>
+      <li>Clientes frecuentes: falta validar las métricas contra pedidos de al menos dos clientes en MySQL.</li>
+      <li>Parámetros inválidos: la suite verifica HTTP 400 para monto negativo y mínimo cero; falta la comprobación manual de cliente vacío y los tres valores por interfaz.</li>
+      <li>Inventario indisponible: falta detener el servicio, comprobar fallo controlado del alta y continuidad del reporte local.</li>
+      <li>Roles y CSRF: existen pruebas automatizadas de reporte/anónimo y reglas existentes de POST/CSRF; falta documentar el recorrido manual completo solicitado.</li>
+    </ol>
+    <p>La matriz y los pasos reproducibles están en <code>entrega-pa3/evidencias/README.md</code>. Las pruebas automatizadas con H2 no sustituyen las capturas manuales requeridas con MySQL y el servicio externo.</p>
+  </section>
+
+  <section class="page">
+    <h2>5. Conclusiones y referencias</h2>
+    <h3>Conclusiones</h3>
+    <ol>
+      <li>La aplicación conserva la separación entre controladores, servicio y repositorio, y comparte la lógica de reportes entre JSP y API.</li>
+      <li>Las dos consultas nuevas utilizan Spring JDBC con parámetros nombrados; el reporte agregado usa GROUP BY/HAVING y una proyección tipada.</li>
+      <li>La configuración conserva la autorización por rol y CSRF. La suite automatizada confirma el comportamiento cubierto bajo H2.</li>
+      <li>La entrega técnica necesita todavía la ejecución documentada de los cinco escenarios manuales, el nombre del docente en la carátula y la publicación del commit final en el fork personal.</li>
+    </ol>
+    <h3>Referencias</h3>
+    <p>Spring. (s. f.). <em>JDBC</em>. Spring Framework Reference Documentation. https://docs.spring.io/spring-framework/reference/data-access/jdbc.html</p>
+    <p>Spring. (s. f.). <em>Web MVC</em>. Spring Framework Reference Documentation. https://docs.spring.io/spring-framework/reference/web/webmvc.html</p>
+    <p>Spring. (s. f.). <em>Authorize HTTP requests</em>. Spring Security Reference. https://docs.spring.io/spring-security/reference/servlet/authorization/authorize-http-requests.html</p>
+    <p>Spring. (s. f.). <em>Cross Site Request Forgery (CSRF)</em>. Spring Security Reference. https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html</p>
+    <p>Spring. (s. f.). <em>Testing</em>. Spring Boot Reference Documentation. https://docs.spring.io/spring-boot/reference/testing/index.html</p>
+    <h3>Archivos de apoyo</h3>
+    <ul>
+      <li>Diagrama: <code>.github/modernize/assessment/engines/facts/architecture-diagram.md</code>.</li>
+      <li>README, instrucciones de configuración y pruebas: <code>README.md</code>.</li>
+      <li>Matriz de evidencia y registro automatizado: <code>entrega-pa3/evidencias/</code>.</li>
+    </ul>
+    <p class="small">Antes de subir el informe a la plataforma, completar el nombre del docente, ejecutar y adjuntar la evidencia manual real, y añadir el URL del fork, rama y hash del commit final.</p>
+  </section>
+</body>
+</html>

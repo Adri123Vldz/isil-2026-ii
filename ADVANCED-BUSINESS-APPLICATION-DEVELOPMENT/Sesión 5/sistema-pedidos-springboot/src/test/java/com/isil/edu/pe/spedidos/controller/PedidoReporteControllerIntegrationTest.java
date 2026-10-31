@@ -5,7 +5,9 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,6 +84,71 @@ class PedidoReporteControllerIntegrationTest {
   }
 
   @Test
+  @DisplayName("Return filtered orders from advanced JSON search")
+  void returnFilteredOrdersFromAdvancedJsonSearch() throws Exception {
+    mockMvc.perform(get("/api/v1/pedidos/busqueda-avanzada")
+            .param("cliente", "Ana")
+            .param("totalMinimo", "1000")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$[0].cliente").value("Ana Torres"))
+        .andExpect(jsonPath("$[0].total").value(5000.0))
+        .andExpect(jsonPath("$[1]").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("Return aggregate frequent-customer metrics from JSON endpoint")
+  void returnAggregateFrequentCustomerMetricsFromJsonEndpoint() throws Exception {
+    insertarPedido("Ana Torres", "MOU-001", "Mouse", "50.00", 2, "100.00");
+
+    mockMvc.perform(get("/api/v1/pedidos/clientes-frecuentes")
+            .param("minPedidos", "2")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].cliente").value("Ana Torres"))
+        .andExpect(jsonPath("$[0].totalPedidos").value(2))
+        .andExpect(jsonPath("$[0].totalUnidades").value(4))
+        .andExpect(jsonPath("$[0].importeAcumulado").value(5100.0))
+        .andExpect(jsonPath("$[0].ticketPromedio").value(2550.0));
+  }
+
+  @Test
+  @DisplayName("Return bad request when advanced report parameters are invalid")
+  void returnBadRequestWhenAdvancedReportParametersAreInvalid() throws Exception {
+    mockMvc.perform(get("/api/v1/pedidos/busqueda-avanzada")
+            .param("cliente", "Ana")
+            .param("totalMinimo", "-1")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value(
+            "El total mínimo debe ser mayor o igual a cero."
+        ));
+
+    mockMvc.perform(get("/api/v1/pedidos/clientes-frecuentes")
+            .param("minPedidos", "0")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value(
+            "El mínimo de pedidos debe ser al menos 1."
+        ));
+  }
+
+  @Test
+  @DisplayName("Render the report JSP for an authorized CONSULTA user")
+  void renderReportJspForAuthorizedConsultaUser() throws Exception {
+    mockMvc.perform(get("/reportes/pedidos")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isOk())
+        .andExpect(view().name("reportes-pedidos"))
+        .andExpect(model().attributeExists(
+            "resumen",
+            "pedidosFiltrados",
+            "clientesFrecuentes"
+        ));
+  }
+
+  @Test
   @DisplayName("Return not found when legacy action style search URI is requested")
   void returnNotFoundWhenLegacyActionStyleSearchUriIsRequested() throws Exception {
     mockMvc.perform(get("/api/v1/pedidos/buscar")
@@ -119,4 +186,3 @@ class PedidoReporteControllerIntegrationTest {
     );
   }
 }
-

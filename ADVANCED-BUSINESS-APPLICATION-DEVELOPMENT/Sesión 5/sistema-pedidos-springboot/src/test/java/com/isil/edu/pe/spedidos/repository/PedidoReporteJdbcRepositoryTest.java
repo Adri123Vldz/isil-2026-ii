@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.isil.edu.pe.spedidos.entity.Pedido;
+import com.isil.edu.pe.spedidos.repository.projection.ClienteFrecuenteProjection;
 import com.isil.edu.pe.spedidos.repository.projection.ProductoVendidoProjection;
 import com.isil.edu.pe.spedidos.repository.projection.ResumenPedidosProjection;
 import java.math.BigDecimal;
@@ -74,6 +75,52 @@ class PedidoReporteJdbcRepositoryTest {
     // Assert
     assertEquals(2, pedidos.size());
     assertTrue(pedidos.stream().allMatch(pedido -> "Ana Torres".equals(pedido.getCliente())));
+  }
+
+  @Test
+  @DisplayName("Filter advanced order search by customer and minimum total in descending ID order")
+  void filterAdvancedOrderSearchByCustomerAndMinimumTotalInDescendingIdOrder() {
+    List<Pedido> pedidos = repository.buscarPedidosPorClienteYTotalMinimo(
+        "Ana",
+        new BigDecimal("1000.00")
+    );
+
+    assertEquals(1, pedidos.size());
+    assertEquals("Ana Torres", pedidos.get(0).getCliente());
+    assertEquals(0, new BigDecimal("5000.00").compareTo(pedidos.get(0).getTotal()));
+  }
+
+  @Test
+  @DisplayName("Order advanced search results by descending order ID")
+  void orderAdvancedSearchResultsByDescendingOrderId() {
+    List<Pedido> pedidos = repository.buscarPedidosPorClienteYTotalMinimo(
+        "Ana",
+        BigDecimal.ZERO
+    );
+
+    assertEquals(2, pedidos.size());
+    assertTrue(pedidos.get(0).getId() > pedidos.get(1).getId());
+  }
+
+  @Test
+  @DisplayName("Aggregate frequent customers with counts, units, amount and average ticket")
+  void aggregateFrequentCustomersWithOrdersUnitsAmountAndAverageTicket() {
+    List<ClienteFrecuenteProjection> clientes =
+        repository.listarClientesFrecuentes(2);
+
+    assertEquals(1, clientes.size());
+    ClienteFrecuenteProjection ana = clientes.get(0);
+    assertEquals("Ana Torres", ana.cliente());
+    assertEquals(2L, ana.totalPedidos());
+    assertEquals(4L, ana.totalUnidades());
+    assertEquals(0, new BigDecimal("5100.00").compareTo(ana.importeAcumulado()));
+    assertEquals(0, new BigDecimal("2550.00").compareTo(ana.ticketPromedio()));
+  }
+
+  @Test
+  @DisplayName("Exclude customers below the requested frequent-order threshold")
+  void excludeCustomersBelowRequestedFrequentOrderThreshold() {
+    assertTrue(repository.listarClientesFrecuentes(3).isEmpty());
   }
 
   @Test
