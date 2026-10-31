@@ -87,12 +87,12 @@
     <table>
       <thead><tr><th>Mecanismo</th><th>Uso</th><th>Base de datos</th></tr></thead>
       <tbody>
-        <tr><td>Spring Data JPA</td><td>Operación CRUD transaccional existente de pedidos.</td><td>MySQL en ejecución normal; H2 en pruebas.</td></tr>
-        <tr><td>Spring JDBC</td><td>Reportes de solo lectura y agregados explícitos requeridos por PA3.</td><td>El mismo DataSource MySQL; H2 para pruebas.</td></tr>
+        <tr><td>Spring Data JPA</td><td>Operación CRUD transaccional existente de pedidos.</td><td>MySQL en ejecución normal; H2 en pruebas y demostración local.</td></tr>
+        <tr><td>Spring JDBC</td><td>Reportes de solo lectura y agregados explícitos requeridos por PA3.</td><td>El mismo DataSource MySQL; H2 en pruebas y demostración local.</td></tr>
         <tr><td>HTTP RestClient</td><td>Consulta/reserva de inventario durante el alta de pedidos.</td><td>Servicio Jakarta EE externo con SQL Server.</td></tr>
       </tbody>
     </table>
-    <p>Separar las consultas de reporte de la persistencia JPA permite cumplir el requisito de SQL explícito sin sustituir el flujo existente. H2 se activa mediante el perfil de pruebas y permite comprobar las consultas sin MySQL.</p>
+    <p>Separar las consultas de reporte de la persistencia JPA permite cumplir el requisito de SQL explícito sin sustituir el flujo existente. H2 se activa en pruebas y mediante el perfil local <code>demo</code>, que carga cinco pedidos deterministas. Este perfil permite demostrar las consultas sin MySQL, pero no sustituye la validación con MySQL.</p>
   </section>
 
   <section class="page">
@@ -116,31 +116,32 @@
     </ul>
     <p>La autenticación es de laboratorio, con usuarios en memoria y claves externalizables. No se agregan JWT, OAuth2 ni persistencia de usuarios, porque no forman parte del requerimiento.</p>
     <h3>Continuidad ante inventario no disponible</h3>
-    <p>Las consultas nuevas se apoyan en el historial local de MySQL, por lo que su ruta de ejecución no requiere el cliente HTTP de inventario. La operación de alta sí depende de inventario-service para consultar o reservar el stock. El comportamiento de ambos casos debe verificarse manualmente en el entorno de ejecución.</p>
+    <p>Las consultas nuevas se apoyan en el historial local, por lo que su ruta de ejecución no requiere el cliente HTTP de inventario. La operación de alta sí depende de inventario-service para consultar o reservar el stock. La prueba automatizada confirma que el alta falla sin persistir cuando se rechaza la conexión HTTP y que el reporte local sigue disponible. Además, el 31/10/2026 el catálogo de inventario respondió HTTP 200 con tres productos y las consultas de stock devolvieron 10, 20 y 30; fueron solo solicitudes GET, sin reservar ni alterar existencias.</p>
   </section>
 
   <section class="page">
     <h2>4. Pruebas automatizadas y casos funcionales</h2>
     <h3>Resultado automatizado verificado</h3>
-    <p>Se ejecutó <code>mvnw clean test</code> en el proyecto Spring Boot con el perfil <code>test</code>. Resultado verificado: <strong>36 pruebas, 0 fallos, 0 errores, 0 omitidas</strong>; 16 son nuevas para PA3 respecto de la rama base del docente. El registro de consola y los reportes Surefire están en <code>entrega-pa3/evidencias/automatizadas/</code>.</p>
+    <p>Se ejecutó <code>mvnw clean test</code> en el proyecto Spring Boot. Resultado verificado: <strong>38 pruebas, 0 fallos, 0 errores, 0 omitidas</strong>; 18 son nuevas para PA3 respecto de la rama base del docente. El registro de consola y los reportes Surefire están en <code>entrega-pa3/evidencias/automatizadas/</code>.</p>
     <table>
       <thead><tr><th>Prueba</th><th>Verificación añadida para PA3</th><th>Resultado</th></tr></thead>
       <tbody>
         <tr><td>Repositorio JDBC</td><td>Filtro cliente/monto, orden descendente y agregados GROUP BY/HAVING.</td><td>Correcta con H2</td></tr>
         <tr><td>Servicio de reportes</td><td>Rechazo de cliente vacío, monto negativo y umbral menor a uno.</td><td>Correcta con Mockito</td></tr>
         <tr><td>API y MVC</td><td>JSON de ambos reportes, HTTP 400 para cliente vacío y valores inválidos, y filtros de cliente/monto y frecuencia en el modelo JSP.</td><td>Correcta con MockMvc/H2</td></tr>
+        <tr><td>Perfil demo H2</td><td>Contexto Spring arranca con los cinco pedidos semilla; búsqueda avanzada y agregados verifican los valores esperados.</td><td>Correcta con Spring Boot/H2</td></tr>
         <tr><td>Inventario no disponible</td><td>Conexión HTTP rechazada: el alta falla sin persistir y el reporte local continúa disponible.</td><td>Correcta con H2 e integración HTTP local</td></tr>
         <tr><td>Seguridad</td><td>Acceso de CONSULTA, redirección de anónimo, rechazo de POST no autorizado y protección CSRF.</td><td>Correcta con Spring Security Test</td></tr>
       </tbody>
     </table>
     <h3>Estado de los cinco escenarios</h3>
-    <div class="note"><span class="status">Validación automatizada completa; evidencia manual pendiente:</span> las pruebas cubren los flujos funcionales con H2. En esta sesión MySQL no está instalado y los puertos 3306, 8081 y 8082 no aceptan conexiones. Por ello no se afirma haber ejecutado los casos contra MySQL ni haber obtenido capturas manuales.</div>
+    <div class="note"><span class="status">Suite automatizada aprobada; recorrido manual con MySQL pendiente:</span> MySQL no está instalado y el puerto 3306 no acepta conexiones; tampoco quedó confirmado Sistema de Pedidos escuchando en el puerto 8081. El servicio de inventario sí respondió en el puerto 8082 durante una comprobación GET separada. No se afirma haber ejecutado los cinco escenarios manualmente ni contra MySQL, y no se incluyen capturas ficticias.</div>
     <ol>
-      <li>Búsqueda por cliente y monto: API y repositorio se verifican con H2; falta contrastar los resultados contra JSP y MySQL reales.</li>
-      <li>Clientes frecuentes: se verifican las cuatro métricas con H2; falta contrastarlas con datos de MySQL.</li>
-      <li>Parámetros inválidos: cliente vacío, monto negativo y umbral menor a uno producen HTTP 400 en pruebas automatizadas; faltan capturas manuales.</li>
-      <li>Inventario indisponible: una prueba de integración usa una conexión rechazada, confirma que el alta falla sin guardar y que el reporte local sigue disponible; falta repetirlo con los servicios reales.</li>
-      <li>Roles y CSRF: MockMvc confirma autorización de CONSULTA, redirección de anónimo, rechazo de POST no autorizado y CSRF requerido; faltan capturas manuales.</li>
+      <li>Búsqueda por cliente y monto: repositorio, API y modelo JSP se verifican con H2/MockMvc; el perfil demo confirma datos reproducibles. Falta el recorrido HTTP/manual y contraste con MySQL.</li>
+      <li>Clientes frecuentes: las cuatro métricas se verifican con H2; el perfil demo confirma 3 pedidos, 8 unidades, S/ 5,580 y ticket promedio S/ 1,860 para Ana Torres. Falta el contraste con MySQL.</li>
+      <li>Parámetros inválidos: cliente vacío, monto negativo y umbral menor a uno producen HTTP 400 en pruebas automatizadas; falta evidencia HTTP/manual.</li>
+      <li>Inventario indisponible: una prueba de integración confirma que el alta falla sin guardar y que el reporte local sigue disponible; el inventario real se consultó por separado mediante GET. Falta repetir el escenario coordinado con la aplicación y MySQL.</li>
+      <li>Roles y CSRF: MockMvc confirma autorización de CONSULTA, redirección de anónimo, rechazo de POST no autorizado y CSRF requerido; falta evidencia HTTP/manual.</li>
     </ol>
     <p>La matriz y los pasos reproducibles están en <code>entrega-pa3/evidencias/README.md</code>. Las pruebas automatizadas con H2 no sustituyen las capturas manuales requeridas con MySQL y el servicio externo.</p>
   </section>
@@ -152,7 +153,7 @@
       <li>La aplicación conserva la separación entre controladores, servicio y repositorio, y comparte la lógica de reportes entre JSP y API.</li>
       <li>Las dos consultas nuevas utilizan Spring JDBC con parámetros nombrados; el reporte agregado usa GROUP BY/HAVING y una proyección tipada.</li>
       <li>La configuración conserva la autorización por rol y CSRF. La suite automatizada confirma el comportamiento cubierto bajo H2.</li>
-      <li>La rama de trabajo está publicada en el fork personal y las 36 pruebas automatizadas pasan. Para completar la evidencia manual se requiere un entorno con MySQL y los dos servicios activos; también falta completar el nombre del docente en la carátula.</li>
+      <li>La rama de trabajo está publicada en el fork personal y las 38 pruebas automatizadas pasan. El perfil demo de H2 facilita una ejecución reproducible sin MySQL; para acreditar la compatibilidad solicitada y cerrar la evidencia manual todavía se requiere ejecutar los cinco escenarios con MySQL y los servicios activos.</li>
     </ol>
     <h3>Referencias</h3>
     <p>Spring. (s. f.). <em>JDBC</em>. Spring Framework Reference Documentation. https://docs.spring.io/spring-framework/reference/data-access/jdbc.html</p>
@@ -166,7 +167,7 @@
       <li>README, instrucciones de configuración y pruebas: <code>README.md</code>.</li>
       <li>Matriz de evidencia y registro automatizado: <code>entrega-pa3/evidencias/</code>.</li>
     </ul>
-    <p class="small">Antes de subir el informe a la plataforma, completar el nombre del docente y adjuntar la evidencia manual real de los cinco escenarios.</p>
+    <p class="small">La carátula conserva el campo Docente tal como fue solicitado. Adjuntar la evidencia manual real de los cinco escenarios cuando se ejecute en el entorno con MySQL.</p>
   </section>
 </body>
 </html>

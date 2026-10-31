@@ -70,7 +70,7 @@ El proyecto conserva una interfaz **Spring MVC + JSP** y expone una **API JSON**
 | Web | Spring MVC (`spring-boot-starter-webmvc`) |
 | Vista | JSP, JSTL y Tomcat Jasper; empaquetado **WAR** |
 | API | `@RestController`, DTO `PedidoResponse` y serialización JSON |
-| Persistencia | Spring Data JPA + Spring JDBC (`JdbcTemplate`, `NamedParameterJdbcTemplate`); MySQL en ejecución normal y H2 en pruebas |
+| Persistencia | Spring Data JPA + Spring JDBC (`JdbcTemplate`, `NamedParameterJdbcTemplate`); MySQL en ejecución normal y H2 para pruebas y demostración local |
 | Integración | Spring `RestClient`, HTTP/JSON con `inventario-service` |
 | Seguridad (S07) | Spring Security, `SecurityFilterChain`, `formLogin`, `BCryptPasswordEncoder`, CSRF |
 | Pruebas | JUnit 5, Mockito, Spring Test, MockMvc y Spring Security Test |
@@ -130,7 +130,7 @@ Navegador / cliente HTTP
 - **Seguridad:** filtra solicitudes y aplica controles antes del procesamiento MVC cuando corresponde.
 - **Controladores:** reciben entradas HTTP, delegan al servicio y determinan la representación de salida.
 - **Servicio:** valida datos y coordina operaciones de pedido, persistencia e inventario.
-- **Repositorio:** encapsula el acceso a la base configurada; MySQL se usa en la ejecución normal y H2 queda reservado para pruebas.
+- **Repositorio:** encapsula el acceso a la base configurada; MySQL se usa por defecto, con perfiles H2 separados para pruebas y demostración local.
 - **Adaptador externo:** centraliza las llamadas HTTP mediante la abstracción `InventarioClient`.
 
 Los controladores reciben `PedidoService` por constructor; el servicio recibe `PedidoRepository` e `InventarioClient`. No es necesario crear estos colaboradores mediante `new` dentro de la lógica del proyecto.
@@ -159,8 +159,10 @@ sistema-pedidos-springboot/
     │   │   │   ├── dto/          # Modelos de servicio de reportes [S09]
     │   │   │   └── impl/         # Implementaciones de servicios
     │   │   └── SistemaPedidosSpringbootApplication.java
-    │   ├── resources/application.properties   # MySQL
-    │   ├── test/resources/application-test.properties # H2 para pruebas
+    │   ├── resources/application.properties   # MySQL predeterminado
+    │   ├── resources/application-demo.properties # H2 y datos locales de demostración
+    │   ├── resources/data-demo.sql            # Datos reproducibles del perfil demo
+    │   └── test/resources/application-test.properties # H2 para pruebas
     │   └── webapp/
     │       ├── assets/css/app.css
     │       └── WEB-INF/views/
@@ -173,6 +175,7 @@ sistema-pedidos-springboot/
         │   ├── PedidoSecurityIntegrationTest.java # Seguridad MVC; filtros [S07]
         │   └── PedidoReporteControllerIntegrationTest.java # REST/HATEOAS + seguridad + H2 [S09]
         ├── repository/PedidoReporteJdbcRepositoryTest.java # Integración Spring JDBC/H2 [S09]
+        ├── repository/PedidoDemoProfileIntegrationTest.java # Perfil demo H2 y datos reproducibles
         └── service/impl/PedidoServiceImplTest.java
 ```
 
@@ -262,7 +265,7 @@ Iniciar `inventario-service` en WildFly y verificar que está accesible en `http
 
 ### 7.2 Preparar MySQL
 
-Crear la base `sistema_pedidos` y verificar las variables `DB_URL`, `DB_USERNAME` y `DB_PASSWORD`. H2 no se necesita para ejecutar la aplicación: queda restringido a la suite de pruebas.
+Crear la base `sistema_pedidos` y verificar las variables `DB_URL`, `DB_USERNAME` y `DB_PASSWORD`. MySQL sigue siendo la base predeterminada de la aplicación.
 
 ### 7.3 Compilar y ejecutar Sistema de Pedidos
 
@@ -282,6 +285,16 @@ mvn spring-boot:run
 
 > `clean test` y `spring-boot:run` se ejecutan de forma secuencial; el segundo comando mantiene la aplicación iniciada hasta que se detiene el proceso.
 
+### Perfil de demostración local (H2)
+
+Para ejecutar y comprobar la aplicación sin instalar MySQL, activar el perfil `demo`. Este perfil crea una base H2 en memoria, carga cinco pedidos deterministas desde `src/main/resources/data-demo.sql` y no cambia la configuración MySQL predeterminada:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
+```
+
+La aplicación de demostración usa los usuarios de laboratorio `operador` y `consulta` descritos abajo. Cada reinicio recrea la base y vuelve a cargar los cinco registros; no se conservan altas entre reinicios. El perfil permite comprobar consultas, validaciones, JSP y seguridad. **No equivale a una validación de compatibilidad ni de persistencia contra MySQL.**
+
 ### 7.4 Acceder desde el navegador
 
 - Aplicación: <http://localhost:8081/sistema-pedidos/>
@@ -290,7 +303,7 @@ mvn spring-boot:run
 - API de pedidos: <http://localhost:8081/sistema-pedidos/api/v1/orders>
 - Resumen: <http://localhost:8081/sistema-pedidos/api/v1/orders/resumen>
 
-Primero se solicita autenticación. Luego, Spring Security aplica los permisos del usuario autenticado. H2 no forma parte del runtime normal: su dependencia tiene alcance `test` y se activa únicamente mediante el perfil de pruebas.
+Primero se solicita autenticación. Luego, Spring Security aplica los permisos del usuario autenticado. El perfil normal conserva MySQL; H2 se selecciona únicamente al usar `demo` o al ejecutar las pruebas.
 
 > La colección existente `postman/ISIL.postman_collection.json` procede de las prácticas de integración. Para utilizar sus solicitudes contra endpoints ahora protegidos, deben configurarse autenticación por sesión y, cuando corresponda, CSRF; no se incorporó HTTP Basic ni JWT a `SecurityConfig`.
 
@@ -329,7 +342,7 @@ Accept: application/json
 }
 ```
 
-**Ejemplo ilustrativo:** `totalPedidos=2` y `totalUnidades=5` equivalen a dos pedidos cuyas cantidades suman cinco. En ejecución normal los datos provienen de MySQL; durante la suite de pruebas, de H2 en memoria.
+**Ejemplo ilustrativo:** `totalPedidos=2` y `totalUnidades=5` equivalen a dos pedidos cuyas cantidades suman cinco. En ejecución normal los datos provienen de MySQL; durante las pruebas y el perfil demo, de H2 en memoria.
 
 En `PedidoApiController`, el total se calcula a partir de una sola llamada al servicio:
 
@@ -410,6 +423,8 @@ Ejecutar todos los tests:
 | `PedidoSecurityIntegrationTest` **[S07]** | Integración MVC con contexto Spring | Login requerido, autorización por roles, CSRF y acceso autenticado al resumen. |
 | `PedidoReporteControllerIntegrationTest` **[S09]** | Integración MVC + seguridad + H2 | Contratos HAL/HATEOAS, filtros por query parameter y retiro de la URI RPC `/buscar`. |
 | `PedidoReporteJdbcRepositoryTest` **[S09]** | Integración Spring Boot + H2 | Consultas agregadas, parámetros con nombre, `RowMapper` y `GROUP BY`. |
+| `PedidoDemoProfileIntegrationTest` | Integración Spring Boot + perfil `demo` | Arranque del contexto H2, carga de cinco filas y consultas esperadas de búsqueda avanzada y clientes frecuentes. |
+| `PedidoInventarioNoDisponibleIntegrationTest` | Integración de servicio y cliente HTTP | Rechazo de conexión al inventario sin persistir el pedido y continuidad de consultas locales. |
 | `SistemaPedidosSpringbootApplicationTests` | Contexto de Spring Boot | Carga del contexto de aplicación. |
 
 En las pruebas de seguridad se utiliza:
@@ -433,7 +448,7 @@ MockMvcBuilders.webAppContextSetup(context)
 | Resumen vacío | Servicio devuelve lista vacía | `totalPedidos=0` y `totalUnidades=0`. |
 | Dos pedidos | Cantidades `2` y `3` simuladas con Mockito | `totalPedidos=2` y `totalUnidades=5`. |
 
-Las pruebas unitarias puras (`PedidoServiceImplTest`, `PedidoApiControllerTest`) usan mocks y no necesitan una base de datos. Las pruebas que cargan el contexto Spring activan el perfil `test`, por lo que utilizan H2 en memoria y nunca dependen de una instancia MySQL externa.
+Las pruebas unitarias puras (`PedidoServiceImplTest`, `PedidoApiControllerTest`) usan mocks y no necesitan una base de datos. Las pruebas de integración usan los perfiles `test` o `demo` con H2 en memoria y nunca dependen de una instancia MySQL externa.
 
 ## 11. Persistencia, integración y transacciones
 
@@ -463,9 +478,9 @@ $env:DB_USERNAME = "root"
 $env:DB_PASSWORD = "<clave-local>"
 ```
 
-### H2 exclusivamente para pruebas
+### H2 para pruebas y demostración local
 
-`src/test/resources/application-test.properties` define una base **H2 en memoria** con `MODE=MySQL`. Las pruebas que cargan el contexto Spring usan `@ActiveProfiles("test")`, por lo que `mvn test` no requiere MySQL.
+`src/test/resources/application-test.properties` define una base **H2 en memoria** con `MODE=MySQL` para las pruebas; `mvn test` no requiere MySQL. Para la ejecución manual local, `src/main/resources/application-demo.properties` activa H2 y `data-demo.sql` carga pedidos de demostración al iniciar. El perfil `demo` no reemplaza la comprobación final con MySQL.
 
 ```properties
 spring.datasource.url=jdbc:h2:mem:pedidos_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -506,7 +521,7 @@ El GET de la pantalla JSP consulta productos desde inventario y pedidos desde My
 
 ## 13. Spring JDBC y reportes — Sesión 9
 
-La sesión 9 incorpora un módulo de **reportes de solo lectura con Spring JDBC** sin reemplazar el CRUD existente con Spring Data JPA. Ambos mecanismos reutilizan el mismo `DataSource`: MySQL en ejecución normal y H2 en memoria bajo el perfil `test`.
+La sesión 9 incorpora un módulo de **reportes de solo lectura con Spring JDBC** sin reemplazar el CRUD existente con Spring Data JPA. Ambos mecanismos reutilizan el mismo `DataSource`: MySQL en ejecución normal y H2 en memoria bajo los perfiles `test` y `demo`.
 
 ### Arquitectura incorporada
 
