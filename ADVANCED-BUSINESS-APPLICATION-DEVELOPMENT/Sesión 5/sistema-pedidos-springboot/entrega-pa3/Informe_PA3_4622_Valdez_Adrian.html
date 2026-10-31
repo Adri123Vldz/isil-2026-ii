@@ -122,24 +122,25 @@
   <section class="page">
     <h2>4. Pruebas automatizadas y casos funcionales</h2>
     <h3>Resultado automatizado verificado</h3>
-    <p>Se ejecutó <code>mvnw clean test</code> en el proyecto Spring Boot con el perfil <code>test</code>. Resultado de la ejecución: <strong>33 pruebas, 0 fallos, 0 errores, 0 omitidas</strong>. El registro de consola y los reportes Surefire se adjuntan en <code>entrega-pa3/evidencias/</code>.</p>
+    <p>Se ejecutó <code>mvnw clean test</code> en el proyecto Spring Boot con el perfil <code>test</code>. Resultado verificado: <strong>36 pruebas, 0 fallos, 0 errores, 0 omitidas</strong>; 16 son nuevas para PA3 respecto de la rama base del docente. El registro de consola y los reportes Surefire están en <code>entrega-pa3/evidencias/automatizadas/</code>.</p>
     <table>
       <thead><tr><th>Prueba</th><th>Verificación añadida para PA3</th><th>Resultado</th></tr></thead>
       <tbody>
         <tr><td>Repositorio JDBC</td><td>Filtro cliente/monto, orden descendente y agregados GROUP BY/HAVING.</td><td>Correcta con H2</td></tr>
         <tr><td>Servicio de reportes</td><td>Rechazo de cliente vacío, monto negativo y umbral menor a uno.</td><td>Correcta con Mockito</td></tr>
-        <tr><td>API y MVC</td><td>JSON de ambos reportes, HTTP 400 y renderización de la vista.</td><td>Correcta con MockMvc/H2</td></tr>
-        <tr><td>Seguridad</td><td>Acceso autorizado al reporte y redirección de usuario anónimo.</td><td>Correcta con Spring Security Test</td></tr>
+        <tr><td>API y MVC</td><td>JSON de ambos reportes, HTTP 400 para cliente vacío y valores inválidos, y filtros de cliente/monto y frecuencia en el modelo JSP.</td><td>Correcta con MockMvc/H2</td></tr>
+        <tr><td>Inventario no disponible</td><td>Conexión HTTP rechazada: el alta falla sin persistir y el reporte local continúa disponible.</td><td>Correcta con H2 e integración HTTP local</td></tr>
+        <tr><td>Seguridad</td><td>Acceso de CONSULTA, redirección de anónimo, rechazo de POST no autorizado y protección CSRF.</td><td>Correcta con Spring Security Test</td></tr>
       </tbody>
     </table>
-    <h3>Estado de los cinco escenarios manuales</h3>
-    <div class="note"><span class="status">Pendiente de ejecución manual:</span> en esta sesión no estaban disponibles MySQL en localhost:3306, Sistema de Pedidos en localhost:8081 ni inventario-service en localhost:8082. Por ello no se afirma haber obtenido capturas de esos escenarios.</div>
+    <h3>Estado de los cinco escenarios</h3>
+    <div class="note"><span class="status">Validación automatizada completa; evidencia manual pendiente:</span> las pruebas cubren los flujos funcionales con H2. En esta sesión MySQL no está instalado y los puertos 3306, 8081 y 8082 no aceptan conexiones. Por ello no se afirma haber ejecutado los casos contra MySQL ni haber obtenido capturas manuales.</div>
     <ol>
-      <li>Búsqueda por cliente y monto: falta ejecutar y contrastar JSP, API y filas MySQL.</li>
-      <li>Clientes frecuentes: falta validar las métricas contra pedidos de al menos dos clientes en MySQL.</li>
-      <li>Parámetros inválidos: la suite verifica HTTP 400 para monto negativo y mínimo cero; falta la comprobación manual de cliente vacío y los tres valores por interfaz.</li>
-      <li>Inventario indisponible: falta detener el servicio, comprobar fallo controlado del alta y continuidad del reporte local.</li>
-      <li>Roles y CSRF: existen pruebas automatizadas de reporte/anónimo y reglas existentes de POST/CSRF; falta documentar el recorrido manual completo solicitado.</li>
+      <li>Búsqueda por cliente y monto: API y repositorio se verifican con H2; falta contrastar los resultados contra JSP y MySQL reales.</li>
+      <li>Clientes frecuentes: se verifican las cuatro métricas con H2; falta contrastarlas con datos de MySQL.</li>
+      <li>Parámetros inválidos: cliente vacío, monto negativo y umbral menor a uno producen HTTP 400 en pruebas automatizadas; faltan capturas manuales.</li>
+      <li>Inventario indisponible: una prueba de integración usa una conexión rechazada, confirma que el alta falla sin guardar y que el reporte local sigue disponible; falta repetirlo con los servicios reales.</li>
+      <li>Roles y CSRF: MockMvc confirma autorización de CONSULTA, redirección de anónimo, rechazo de POST no autorizado y CSRF requerido; faltan capturas manuales.</li>
     </ol>
     <p>La matriz y los pasos reproducibles están en <code>entrega-pa3/evidencias/README.md</code>. Las pruebas automatizadas con H2 no sustituyen las capturas manuales requeridas con MySQL y el servicio externo.</p>
   </section>
@@ -151,7 +152,7 @@
       <li>La aplicación conserva la separación entre controladores, servicio y repositorio, y comparte la lógica de reportes entre JSP y API.</li>
       <li>Las dos consultas nuevas utilizan Spring JDBC con parámetros nombrados; el reporte agregado usa GROUP BY/HAVING y una proyección tipada.</li>
       <li>La configuración conserva la autorización por rol y CSRF. La suite automatizada confirma el comportamiento cubierto bajo H2.</li>
-      <li>La rama de trabajo y el commit de implementación están publicados en el fork personal. Queda pendiente ejecutar y documentar los cinco escenarios manuales y completar el nombre del docente en la carátula.</li>
+      <li>La rama de trabajo está publicada en el fork personal y las 36 pruebas automatizadas pasan. Para completar la evidencia manual se requiere un entorno con MySQL y los dos servicios activos; también falta completar el nombre del docente en la carátula.</li>
     </ol>
     <h3>Referencias</h3>
     <p>Spring. (s. f.). <em>JDBC</em>. Spring Framework Reference Documentation. https://docs.spring.io/spring-framework/reference/data-access/jdbc.html</p>

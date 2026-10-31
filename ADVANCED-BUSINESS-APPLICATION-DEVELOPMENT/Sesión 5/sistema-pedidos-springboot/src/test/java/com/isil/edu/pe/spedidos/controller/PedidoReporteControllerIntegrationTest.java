@@ -1,5 +1,6 @@
 package com.isil.edu.pe.spedidos.controller;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -135,6 +136,17 @@ class PedidoReporteControllerIntegrationTest {
   }
 
   @Test
+  @DisplayName("Return bad request when advanced search customer is blank")
+  void returnBadRequestWhenAdvancedSearchCustomerIsBlank() throws Exception {
+    mockMvc.perform(get("/api/v1/pedidos/busqueda-avanzada")
+            .param("cliente", " ")
+            .param("totalMinimo", "0")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("El cliente es obligatorio."));
+  }
+
+  @Test
   @DisplayName("Render the report JSP for an authorized CONSULTA user")
   void renderReportJspForAuthorizedConsultaUser() throws Exception {
     mockMvc.perform(get("/reportes/pedidos")
@@ -146,6 +158,22 @@ class PedidoReporteControllerIntegrationTest {
             "pedidosFiltrados",
             "clientesFrecuentes"
         ));
+  }
+
+  @Test
+  @DisplayName("Apply advanced filters and frequent-customer threshold to the report JSP model")
+  void applyAdvancedFiltersAndFrequentCustomerThresholdToReportJspModel() throws Exception {
+    insertarPedido("Ana Torres", "MOU-001", "Mouse", "50.00", 2, "100.00");
+
+    mockMvc.perform(get("/reportes/pedidos")
+            .param("cliente", "Ana")
+            .param("totalMinimo", "1000")
+            .param("minPedidos", "2")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isOk())
+        .andExpect(view().name("reportes-pedidos"))
+        .andExpect(model().attribute("pedidosFiltrados", hasSize(1)))
+        .andExpect(model().attribute("clientesFrecuentes", hasSize(1)));
   }
 
   @Test
