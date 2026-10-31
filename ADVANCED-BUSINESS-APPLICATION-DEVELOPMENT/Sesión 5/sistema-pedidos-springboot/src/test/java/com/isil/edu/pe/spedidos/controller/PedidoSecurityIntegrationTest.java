@@ -82,4 +82,19 @@ class PedidoSecurityIntegrationTest {
         .andExpect(jsonPath("$.totalPedidos").isNumber())
         .andExpect(jsonPath("$.totalUnidades").isNumber());
   }
+
+  @Test
+  @DisplayName("Allow CONSULTA role to access the JDBC reports page")
+  void allowConsultaRoleToAccessJdbcReportsPage() throws Exception {
+    mockMvc.perform(get("/reportes/pedidos")
+            .with(user("consulta").roles("CONSULTA")))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("Redirect anonymous users to login when accessing JDBC reports")
+  void redirectAnonymousUsersToLoginWhenAccessingJdbcReports() throws Exception {
+    mockMvc.perform(get("/reportes/pedidos"))
+        .andExpect(status().is3xxRedirection());
+  }
 }
