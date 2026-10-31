@@ -6,6 +6,8 @@ Se ejecutó `mvnw clean test`: **38 pruebas, 0 fallos, 0 errores y 0 omitidas**.
 
 El proyecto incluye ahora un perfil local `demo` con H2 y cinco pedidos reproducibles. Dos pruebas de integración cargan el contexto Spring bajo ese perfil y verifican los datos de muestra y las consultas de PA3. Esto facilita una demostración local sin MySQL, pero **no equivale a capturas HTTP/manuales ni valida compatibilidad con MySQL**. MySQL no está instalado como servicio/comando en este equipo, el puerto 3306 no acepta conexiones y no se confirmó Sistema de Pedidos escuchando en el puerto 8081. Docker tampoco está disponible.
 
+Se capturaron tres pantallas de la aplicación local autenticada como `CONSULTA`: resumen general con el diseño alineado, búsqueda de Ana con total mínimo S/ 1,000 y clientes frecuentes desde dos pedidos. Están en `demostracion-h2/`; son evidencia visual auténtica de la ejecución con H2 y datos semilla, no de MySQL.
+
 Como comprobación parcial adicional del 31/10/2026, se inició temporalmente `inventario-service` con SQL Server Express y `InventarioDB`. El catálogo respondió HTTP 200 con tres productos; las consultas de stock de `LAP-001`, `MON-001` y `TEC-001` también respondieron HTTP 200 y devolvieron stocks 10, 20 y 30. Solo se hicieron solicitudes GET: no se reservaron productos ni se modificó el inventario. El servicio se cerró al terminar la comprobación. Esto valida el servicio de inventario por separado, no la integración con Pedidos ni los escenarios manuales de PA3.
 
 Las evidencias automatizadas usan H2 y no se presentan como capturas manuales ni como verificación contra MySQL. No se han creado capturas ficticias.
