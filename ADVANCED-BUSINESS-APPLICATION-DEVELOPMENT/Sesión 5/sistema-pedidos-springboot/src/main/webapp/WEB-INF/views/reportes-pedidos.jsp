@@ -37,7 +37,7 @@
 
     <section class="tarjeta">
         <h2>Resumen general</h2>
-        <dl>
+        <dl class="resumen-grid">
             <dt>Total de pedidos</dt>
             <dd><c:out value="${resumen.totalPedidos}"/></dd>
             <dt>Total de unidades</dt>
