@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>PA4 - Sistema de Pedidos</title>
+  <style>
+    @page { size: A4; margin: 15mm 17mm; }
+    * { box-sizing: border-box; }
+    body { font: 10.5pt/1.42 Arial, sans-serif; color: #172033; margin: 0; }
+    h1 { font-size: 23pt; color: #12355b; margin: 0 0 12pt; }
+    h2 { font-size: 16pt; color: #12355b; border-bottom: 2px solid #168aad; padding-bottom: 5pt; margin: 0 0 10pt; }
+    h3 { font-size: 11pt; color: #146c80; margin: 8pt 0 4pt; }
+    p { margin: 5pt 0 8pt; }
+    ul, ol { margin: 5pt 0 8pt; padding-left: 19pt; }
+    li { margin: 3pt 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8pt 0; font-size: 8.8pt; }
+    th { background: #e8f3f8; color: #12355b; }
+    th, td { border: 1px solid #b8c8d6; padding: 5pt; vertical-align: top; }
+    .cover { height: 267mm; display: flex; flex-direction: column; justify-content: center; text-align: center; page-break-after: always; }
+    .cover .institution { letter-spacing: 1.5pt; text-transform: uppercase; color: #146c80; font-size: 13pt; }
+    .cover h1 { font-size: 27pt; margin: 30pt 0 9pt; }
+    .cover .subtitle { font-size: 15pt; color: #3d5268; }
+    .cover .meta { margin: 40pt auto 0; text-align: left; width: 78%; font-size: 12pt; line-height: 2; }
+    .cover .repo { margin: 20pt auto 0; width: 78%; text-align: left; overflow-wrap: anywhere; }
+    .page { min-height: 267mm; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .flow { background: #f0f5f8; padding: 8pt; font-family: Consolas, monospace; font-size: 8.5pt; }
+    .note { border-left: 4px solid #df9b21; background: #fff7e6; padding: 8pt 10pt; }
+    .ok { color: #28713d; font-weight: bold; }
+    .pending { color: #9c5c00; font-weight: bold; }
+    code { font-family: Consolas, monospace; font-size: 8.5pt; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="institution">ISIL</div>
+    <h1>Informe de desarrollo<br>Proceso de Aprendizaje 4</h1>
+    <div class="subtitle">Revisión transaccional y trazabilidad de pedidos</div>
+    <div class="meta">
+      <div><strong>Curso:</strong> Desarrollo de Aplicaciones Empresariales Avanzado</div>
+      <div><strong>NRC:</strong> 4622</div>
+      <div><strong>Estudiante:</strong> Adrian Antonio Valdez Lozada</div>
+      <div><strong>Docente:</strong> [Completar]</div>
+      <div><strong>Periodo:</strong> 2026-20</div>
+    </div>
+    <div class="repo">
+      <div><strong>Repositorio:</strong> https://github.com/Adri123Vldz/isil-2026-ii</div>
+      <div><strong>Rama:</strong> feature/pa4-adrian</div>
+      <div><strong>Commit final:</strong> d99f3e5</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>1. Objetivo y alcance</h2>
+    <p>La PA4 amplía la solución PA1-PA3 con una operación de revisión. El pedido cambia a revisado y se registra una única evidencia de trazabilidad dentro de una sola transacción local de Spring JDBC.</p>
+    <h3>Arquitectura transaccional</h3>
+    <div class="flow">
+      Navegador → Spring Security → DispatcherServlet → SupervisionPedidoController<br>
+      → PedidoRevisionService / @Transactional → PedidoRevisionJdbcRepository → MySQL
+    </div>
+    <div class="flow">
+      SupervisionPedidoController → PedidoReporteClient / RestClient → HTTP<br>
+      → pedidos-reportes-service → PedidoReporteService → PedidoReporteJdbcRepository → MySQL
+    </div>
+    <p><code>inventario-service</code> permanece como dependencia externa para registrar pedidos y producir datos de prueba. No participa dentro del bloque transaccional de revisión.</p>
+    <h3>Cambios por capa</h3>
+    <table>
+      <thead><tr><th>Capa</th><th>Implementación PA4</th></tr></thead>
+      <tbody>
+        <tr><td>Esquema</td><td><code>pedido.revisado</code>, tabla <code>pedido_revision</code>, llave foránea y restricción única.</td></tr>
+        <tr><td>Repository JDBC</td><td>SQL parametrizado para existencia, estado, actualización e INSERT de trazabilidad.</td></tr>
+        <tr><td>Service</td><td>Validaciones e <code>@Transactional(rollbackFor = Exception.class)</code> para commit/rollback conjunto.</td></tr>
+        <tr><td>MVC</td><td>GET/POST de supervisión, Model, JSP y Post/Redirect/Get.</td></tr>
+        <tr><td>Integración HTTP</td><td>Cliente RestClient, DTO independientes y manejo de timeout/conexión/5xx.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page">
+    <h2>2. Recursos REST y seguridad</h2>
+    <h3>Nuevos contratos</h3>
+    <table>
+      <thead><tr><th>Recurso</th><th>Contrato</th></tr></thead>
+      <tbody>
+        <tr><td>GET /api/v1/pedidos/revisiones?estado=PENDIENTE</td><td>Pedidos pendientes; observación y fecha nulas.</td></tr>
+        <tr><td>GET /api/v1/pedidos/revisiones?estado=REVISADO</td><td>Pedidos revisados; incluye observación y fecha de revisión.</td></tr>
+        <tr><td>GET /api/v1/pedidos/estadisticas/revisiones</td><td>Total, revisados, pendientes y porcentaje revisado.</td></tr>
+      </tbody>
+    </table>
+    <p>Los estados distintos de <code>PENDIENTE</code> o <code>REVISADO</code> producen HTTP 400 mediante el manejador de errores REST. El cliente web conserva CSRF y autoriza la revisión solo al rol OPERADOR.</p>
+    <h3>Vista de supervisión</h3>
+    <p>La vista presenta identificador, cliente, producto, total, estado de revisión y acción disponible. Para pedidos pendientes muestra el formulario de observación. Para pedidos revisados presenta la evidencia almacenada.</p>
+    <h3>Esquema de persistencia</h3>
+    <pre><code>ALTER TABLE pedido
+  ADD COLUMN revisado BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE pedido_revision (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  pedido_id BIGINT NOT NULL,
+  observacion VARCHAR(500) NOT NULL,
+  fecha_revision DATETIME NOT NULL,
+  FOREIGN KEY (pedido_id) REFERENCES pedido(id),
+  UNIQUE (pedido_id)
+);</code></pre>
+  </section>
+
+  <section class="page">
+    <h2>3. Casos prácticos obligatorios</h2>
+    <table>
+      <thead><tr><th>Caso</th><th>Resultado esperado</th><th>Verificación</th></tr></thead>
+      <tbody>
+        <tr><td>1. Revisión correcta</td><td>revisado=true y una trazabilidad.</td><td>JSP + MySQL antes/después.</td></tr>
+        <tr><td>2. Revisión duplicada</td><td>HTTP 409 o mensaje controlado.</td><td>Sin segunda actualización/INSERT.</td></tr>
+        <tr><td>3. ID/observación inválida</td><td>400/404 y sin escritura.</td><td>Validación de entrada y ID.</td></tr>
+        <tr><td>4. Rollback real</td><td>Falla el INSERT; UPDATE revierte.</td><td>Prueba JUnit con H2.</td></tr>
+        <tr><td>5. Reportes disponibles/caídos</td><td>JSON/JSP o mensaje 503 controlado.</td><td>Detener puerto 8083.</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      Las capturas manuales de los cinco casos deben guardarse en <code>entrega-pa4/evidencias</code>. El README de evidencias contiene la guía exacta de parámetros y consultas MySQL.
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>4. Pruebas automatizadas y evidencia</h2>
+    <h3>Pruebas nuevas</h3>
+    <table>
+      <thead><tr><th>Prueba</th><th>Tipo</th><th>Resultado</th></tr></thead>
+      <tbody>
+        <tr><td>PedidoRevisionServiceImplTest</td><td>Commit/JUnit-Mockito</td><td class="ok">Aprobada</td></tr>
+        <tr><td>PedidoRevisionRollbackIntegrationTest</td><td>Rollback con H2</td><td class="ok">Aprobada</td></tr>
+        <tr><td>PedidoReporteClientIntegrationTest</td><td>Indisponibilidad HTTP</td><td class="ok">Aprobada</td></tr>
+        <tr><td>PedidoRevisionApiControllerTest</td><td>Contrato REST</td><td class="ok">Aprobada</td></tr>
+      </tbody>
+    </table>
+    <h3>Ejecución Maven</h3>
+    <table>
+      <thead><tr><th>Proyecto</th><th>Comando</th><th>Resultado registrado</th></tr></thead>
+      <tbody>
+        <tr><td>sistema-pedidos-springboot</td><td><code>.\mvnw.cmd test</code></td><td>42 pruebas, 0 fallos, 0 errores.</td></tr>
+        <tr><td>pedidos-reportes-service</td><td><code>.\mvnw.cmd test</code></td><td>3 pruebas, 0 fallos, 0 errores.</td></tr>
+      </tbody>
+    </table>
+    <h3>Evidencias pendientes de adjuntar</h3>
+    <ul>
+      <li class="pending">Capturas de los cinco casos funcionales.</li>
+      <li class="pending">Registros `.log` de ambos comandos Maven finales.</li>
+      <li class="pending">Capturas de MySQL antes y después de revisión/rollback.</li>
+    </ul>
+  </section>
+
+  <section class="page">
+    <h2>5. Conclusiones y referencias</h2>
+    <p>La solución separa presentación, negocio e integración HTTP. La revisión usa Spring JDBC y una transacción local de MySQL; el fallo en la segunda escritura revierte la primera. Los dos recursos REST quedan implementados con DTO independientes y el cliente traduce errores remotos a una excepción controlada.</p>
+    <h3>Limitaciones</h3>
+    <ul>
+      <li>Las pruebas reales de MySQL requieren ejecutar el esquema y configurar variables de entorno.</li>
+      <li>La disponibilidad de reportes depende del proceso activo en el puerto 8083.</li>
+      <li>No se replica una transacción distribuidamente con inventario-service.</li>
+    </ul>
+    <h3>Referencias APA</h3>
+    <p>Spring. (2026). <em>Spring Framework JDBC support</em>. https://docs.spring.io/spring-framework/reference/data-access/jdbc.html</p>
+    <p>Spring. (2026). <em>Spring MVC</em>. https://docs.spring.io/spring-framework/reference/web/webmvc.html</p>
+    <p>Spring. (2026). <em>Spring Security Reference</em>. https://docs.spring.io/spring-security/reference/</p>
+    <p>Spring. (2026). <em>Spring Framework transaction management</em>. https://docs.spring.io/spring-framework/reference/data-access/transaction.html</p>
+  </section>
+</body>
+</html>
