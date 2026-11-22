@@ -28,6 +28,11 @@
     .note { border-left: 4px solid #df9b21; background: #fff7e6; padding: 8pt 10pt; }
     .ok { color: #28713d; font-weight: bold; }
     .pending { color: #9c5c00; font-weight: bold; }
+    .evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin: 8pt 0; }
+    figure { margin: 0; }
+    figure img { width: 100%; max-height: 150mm; object-fit: contain; border: 1px solid #d5dee6; }
+    figcaption { font-size: 8.5pt; color: #48596b; margin-top: 3pt; }
+    .evidence-full { width: 100%; border: 1px solid #d5dee6; max-height: 155mm; object-fit: contain; }
     code { font-family: Consolas, monospace; font-size: 8.5pt; }
   </style>
 </head>
@@ -144,9 +149,28 @@ CREATE TABLE pedido_revision (
     <h3>Evidencias pendientes de adjuntar</h3>
     <ul>
       <li class="pending">Capturas de los cinco casos funcionales.</li>
-      <li class="pending">Registros `.log` de ambos comandos Maven finales.</li>
+      <li class="ok">Registros <code>.log</code> de ambos comandos Maven finales adjuntos en <code>entrega-pa4/evidencias/automatizadas</code>.</li>
       <li class="pending">Capturas de MySQL antes y después de revisión/rollback.</li>
     </ul>
+  </section>
+
+  <section class="page">
+    <h2>Anexo visual — evidencia disponible</h2>
+    <p>Las siguientes imágenes son evidencias reales recopiladas durante PA3 y demuestran la continuidad funcional sobre la que se construye PA4. No sustituyen las capturas manuales pendientes de revisión y MySQL.</p>
+    <figure>
+      <img class="evidence-full" src="../entrega-pa3/evidencias/demostracion-h2/resumen-general.png" alt="Resumen general PA3">
+      <figcaption>Figura A1. Resumen general de la aplicación demostrada durante PA3.</figcaption>
+    </figure>
+    <div class="evidence-grid">
+      <figure>
+        <img src="../entrega-pa3/evidencias/demostracion-h2/busqueda-cliente-monto.png" alt="Búsqueda PA3">
+        <figcaption>Figura A2. Evidencia de búsqueda por cliente y monto.</figcaption>
+      </figure>
+      <figure>
+        <img src="../entrega-pa3/evidencias/demostracion-h2/clientes-frecuentes.png" alt="Clientes frecuentes PA3">
+        <figcaption>Figura A3. Evidencia de clientes frecuentes y métricas.</figcaption>
+      </figure>
+    </div>
   </section>
 
   <section class="page">
