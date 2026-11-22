@@ -146,11 +146,11 @@ CREATE TABLE pedido_revision (
         <tr><td>pedidos-reportes-service</td><td><code>.\mvnw.cmd test</code></td><td>3 pruebas, 0 fallos, 0 errores.</td></tr>
       </tbody>
     </table>
-    <h3>Evidencias pendientes de adjuntar</h3>
+    <h3>Estado de evidencias PA4</h3>
     <ul>
-      <li class="pending">Capturas de los cinco casos funcionales.</li>
+      <li class="ok">Capturas de revisión, duplicado, validaciones y indisponibilidad con H2 adjuntas.</li>
       <li class="ok">Registros <code>.log</code> de ambos comandos Maven finales adjuntos en <code>entrega-pa4/evidencias/automatizadas</code>.</li>
-      <li class="pending">Capturas de MySQL antes y después de revisión/rollback.</li>
+      <li class="pending">Capturas MySQL reales pendientes si el motor y la base principal no están disponibles.</li>
     </ul>
   </section>
 
@@ -170,6 +170,36 @@ CREATE TABLE pedido_revision (
         <img src="../entrega-pa3/evidencias/demostracion-h2/clientes-frecuentes.png" alt="Clientes frecuentes PA3">
         <figcaption>Figura A3. Evidencia de clientes frecuentes y métricas.</figcaption>
       </figure>
+    </div>
+  </section>
+
+  <section class="page">
+    <h2>Anexo PA4 — casos 1 y 2</h2>
+    <p>Las capturas fueron obtenidas con el perfil H2 demostrativo compartido por sistema-pedidos y pedidos-reportes-service. Se indican como evidencia alternativa reproducible, no como ejecución MySQL.</p>
+    <h3>Caso 1. Revisión correcta</h3>
+    <div class="evidence-grid">
+      <figure><img src="evidencias/casos/caso1_revision_antes.png" alt="Antes de revisar"><figcaption>Antes: pedido pendiente y estadísticas sin revisados.</figcaption></figure>
+      <figure><img src="evidencias/casos/caso1_revision_despues.png" alt="Después de revisar"><figcaption>Después: revisado=true y mensaje de confirmación.</figcaption></figure>
+    </div>
+    <div class="evidence-grid">
+      <figure><img src="evidencias/casos/caso1_pedido_revisado_jsp.png" alt="JSP revisado"><figcaption>JSP con filtro REVISADO.</figcaption></figure>
+      <figure><img src="evidencias/casos/caso1_estadisticas_rest.png" alt="Estadísticas REST"><figcaption>Endpoint de estadísticas actualizado.</figcaption></figure>
+    </div>
+    <h3>Caso 2. Revisión duplicada</h3>
+    <figure><img class="evidence-full" src="evidencias/casos/caso2_revision_duplicada.png" alt="Duplicado"><figcaption>Segundo intento rechazado sin crear otra trazabilidad.</figcaption></figure>
+  </section>
+
+  <section class="page">
+    <h2>Anexo PA4 — casos 3, 4 y 5</h2>
+    <h3>Caso 3. Validaciones e ID inexistente</h3>
+    <figure><img class="evidence-full" src="evidencias/casos/caso3_validaciones.png" alt="Validaciones"><figcaption>Validación de ID y observación sin cambios parciales.</figcaption></figure>
+    <h3>Caso 4. Rollback real</h3>
+    <p>La prueba <code>PedidoRevisionRollbackIntegrationTest</code> fue aprobada por JUnit 5 en H2. Durante el fallo del segundo INSERT, la actualización previa del pedido se revierte y no queda una revisión confirmada.</p>
+    <div class="note">Resultado Maven: 42 pruebas aprobadas, 0 fallos y 0 errores en sistema-pedidos-springboot.</div>
+    <h3>Caso 5. Servicio disponible/no disponible</h3>
+    <div class="evidence-grid">
+      <figure><img src="evidencias/casos/caso1_estadisticas_rest.png" alt="Reportes disponibles"><figcaption>Servicio disponible: estadísticas REST 200.</figcaption></figure>
+      <figure><img src="evidencias/casos/caso5_servicio_no_disponible.png" alt="Reportes no disponibles"><figcaption>Puerto 8083 detenido: mensaje controlado en la JSP.</figcaption></figure>
     </div>
   </section>
 
