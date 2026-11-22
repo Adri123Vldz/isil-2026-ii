@@ -3,6 +3,7 @@
 > Proyecto académico evolutivo · **Desarrollo de Aplicaciones Empresariales Avanzado** · ISIL  
 > **Sesiones 7:** Spring MVC, seguridad web con Spring Security.
 > **Sesiones 9:** Persistencia de reportes con Spring JDBC.
+> **PA4:** Revisión transaccional y trazabilidad de pedidos.
 
 Aplicación empresarial de referencia para estudiar la migración de **Jakarta EE/WildFly a Spring Boot**, la separación de responsabilidades, la integración HTTP con `inventario-service` y la protección de una aplicación web con **autenticación, autorización y CSRF**.
 
@@ -696,3 +697,34 @@ Para ejecutar toda la suite:
 ---
 
 **Uso académico:** curso *Desarrollo de Aplicaciones Empresariales Avanzado* · Continuidad del caso **Sistema de Pedidos** · Sesiones 7 y 9: **Spring MVC, Seguridad con Spring y Spring JDBC**.
+
+## PA4 — Revisión y trazabilidad
+
+### Nuevas rutas
+
+- `GET /supervision/pedidos?estado=PENDIENTE|REVISADO`
+- `POST /supervision/pedidos/{id}/revisar`
+
+### Variables
+
+```properties
+pedidos-reportes.api.base-url=http://localhost:8083/pedidos-reportes-service
+pedidos-reportes.api.connect-timeout-ms=2000
+pedidos-reportes.api.read-timeout-ms=3000
+```
+
+Las credenciales de base de datos se reciben mediante `DB_URL`, `DB_USERNAME` y `DB_PASSWORD`.
+
+### Esquema
+
+`pedido.revisado` comienza en `false`. `pedido_revision` contiene `pedido_id`, `observacion`
+y `fecha_revision`, con llave foránea y una restricción única por pedido.
+
+### Pruebas PA4
+
+```powershell
+.\mvnw.cmd test
+```
+
+Se incluyen pruebas de commit, rollback por fallo del segundo INSERT e indisponibilidad del
+cliente HTTP.
