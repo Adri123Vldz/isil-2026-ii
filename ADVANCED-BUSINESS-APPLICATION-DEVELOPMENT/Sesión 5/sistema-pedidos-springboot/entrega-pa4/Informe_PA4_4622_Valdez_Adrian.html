@@ -218,6 +218,27 @@ CREATE TABLE pedido_revision (
   </section>
 
   <section class="page">
+    <h2>Anexo MySQL real — casos 2, 3 y 5</h2>
+    <h3>Caso 2. Revisión duplicada</h3>
+    <figure><img class="evidence-full" src="evidencias/mysql/mysql_caso2_duplicado.png" alt="Duplicado MySQL"><figcaption>Segundo intento sobre el pedido revisado, sin crear otra fila.</figcaption></figure>
+    <h3>Caso 3. ID inválido, ID inexistente y observación vacía</h3>
+    <div class="evidence-grid">
+      <figure><img src="evidencias/mysql/mysql_caso3_id_invalido.png" alt="ID inválido"><figcaption>ID menor o igual a cero.</figcaption></figure>
+      <figure><img src="evidencias/mysql/mysql_caso3_id_inexistente.png" alt="ID inexistente"><figcaption>ID no registrado.</figcaption></figure>
+    </div>
+    <figure><img class="evidence-full" src="evidencias/mysql/mysql_caso3_observacion_vacia.png" alt="Observación vacía"><figcaption>Observación vacía rechazada por el Service.</figcaption></figure>
+  </section>
+
+  <section class="page">
+    <h2>Anexo MySQL real — disponibilidad y rollback</h2>
+    <h3>Caso 5. Servicio no disponible</h3>
+    <figure><img class="evidence-full" src="evidencias/mysql/mysql_caso5_no_disponible.png" alt="Servicio no disponible"><figcaption>Con el puerto 8083 detenido, la JSP presenta un mensaje controlado.</figcaption></figure>
+    <h3>Caso 4. Rollback real</h3>
+    <p>El rollback fue demostrado mediante <code>PedidoRevisionRollbackIntegrationTest</code> con JUnit 5 y H2, provocando una falla durante el segundo INSERT después del UPDATE. La primera escritura se revierte y no queda una revisión confirmada.</p>
+    <div class="note">Esta prueba automatizada acredita el límite transaccional; no sustituye una ejecución manual adicional contra MySQL si el docente exige capturas específicas del motor principal.</div>
+  </section>
+
+  <section class="page">
     <h2>5. Conclusiones y referencias</h2>
     <p>La solución separa presentación, negocio e integración HTTP. La revisión usa Spring JDBC y una transacción local de MySQL; el fallo en la segunda escritura revierte la primera. Los dos recursos REST quedan implementados con DTO independientes y el cliente traduce errores remotos a una excepción controlada.</p>
     <h3>Limitaciones</h3>
