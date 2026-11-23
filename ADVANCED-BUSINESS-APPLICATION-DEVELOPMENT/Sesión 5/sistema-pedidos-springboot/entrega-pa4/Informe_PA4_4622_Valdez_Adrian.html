@@ -204,6 +204,20 @@ CREATE TABLE pedido_revision (
   </section>
 
   <section class="page">
+    <h2>Anexo MySQL real — revisión confirmada</h2>
+    <p>Evidencia obtenida con XAMPP/MariaDB en el puerto 3306 sobre la base <code>pedidosdb</code>. Los resultados SQL posteriores confirmaron <code>pedido.revisado=1</code> y una única fila en <code>pedido_revision</code>.</p>
+    <div class="evidence-grid">
+      <figure><img src="evidencias/mysql/mysql_caso1_antes.png" alt="MySQL antes"><figcaption>MySQL antes: pedido pendiente.</figcaption></figure>
+      <figure><img src="evidencias/mysql/mysql_caso1_despues.png" alt="MySQL después"><figcaption>MySQL después: pedido revisado.</figcaption></figure>
+    </div>
+    <div class="evidence-grid">
+      <figure><img src="evidencias/mysql/mysql_caso1_revisado_jsp.png" alt="JSP revisado MySQL"><figcaption>Vista JSP con estado revisado.</figcaption></figure>
+      <figure><img src="evidencias/mysql/mysql_caso1_revisado_rest.png" alt="REST revisado MySQL"><figcaption>Recurso REST con pedido revisado.</figcaption></figure>
+    </div>
+    <figure><img class="evidence-full" src="evidencias/mysql/mysql_caso1_estadisticas_rest.png" alt="Estadísticas MySQL"><figcaption>Estadísticas REST calculadas sobre MySQL real.</figcaption></figure>
+  </section>
+
+  <section class="page">
     <h2>5. Conclusiones y referencias</h2>
     <p>La solución separa presentación, negocio e integración HTTP. La revisión usa Spring JDBC y una transacción local de MySQL; el fallo en la segunda escritura revierte la primera. Los dos recursos REST quedan implementados con DTO independientes y el cliente traduce errores remotos a una excepción controlada.</p>
     <h3>Limitaciones</h3>
